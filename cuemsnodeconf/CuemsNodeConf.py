@@ -506,15 +506,33 @@ class CuemsNodeConf():
                 Logger.debug(f'Node {mac} (uuid={node.get("uuid")}) is offline')
 
     def set_master_always_adopted(self):
+        # An `if self.is_first_run:` branch used to follow, clearing `adopted`
+        # on every non-controller node. Deleted: it had no reachable correct
+        # effect, and one reachable harmful one.
+        #
+        # `is_first_run` means "no network_map.xml existed at boot" (:176), so
+        # nothing adopted can have been loaded from disk. With an empty map,
+        # merge_discovered_nodes takes its else-branch for every discovered node
+        # and sets adopted=False (:498); CuemsAvahiListener constructs every node
+        # with adopted=False in both add_service and update_service; and nothing
+        # between the map's creation and the first refresh writes `adopted` at
+        # all. So on the run the branch was written for, every non-controller was
+        # already False by the time it ran.
+        #
+        # The flag is computed once and never reset, while the daemon is now
+        # resident (it used to run one pass and exit). So its only live effect
+        # was on a first-boot controller: an operator adoption via
+        # nodelist_modify -> adopt_node was cleared again by the next worker tick,
+        # within 30 s, silently, after the UI had already been told {'OK': True}.
+        #
+        # NOTE: this reasoning depends on is_first_run meaning "no map file on
+        # disk". If it is ever redefined -- e.g. to mean the firstrun ROLE, which
+        # is a different signal entirely -- revisit rather than assume.
+        # See specs/planning/08-firstrun-signals.md.
         for mac, node in self.network_map.items():
             if node.get('node_role') == NodeRole.controller:
                 node['adopted'] = True
                 Logger.debug(f'Set master node {mac} as always adopted')
-
-        if self.is_first_run:
-            for mac, node in self.network_map.items():
-                if node.get('node_role') != NodeRole.controller:
-                    node['adopted'] = False
 
     def check_missing_adopted_nodes(self):
         adopted_nodes = [node for node in self.network_map.values() if node.get('adopted')]

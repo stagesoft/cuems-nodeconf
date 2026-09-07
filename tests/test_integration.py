@@ -113,7 +113,6 @@ class TestIntegrationScenarios:
         nodeconf = CuemsNodeConf()
         nodeconf.network_map = NodeIndex()
         nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
-        nodeconf.is_first_run = False
 
         # Add controller and node to discovered nodes
         controller = Node(
@@ -149,7 +148,6 @@ class TestIntegrationScenarios:
         nodeconf.network_map = NodeIndex()  # Ensure fresh network map
         nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
         nodeconf.listener.nodes = NodeIndex()  # Ensure fresh listener nodes
-        nodeconf.is_first_run = False
 
         # Add controller node
         controller = Node(
@@ -221,7 +219,6 @@ class TestIntegrationScenarios:
         nodeconf.network_map = NodeIndex()  # Ensure fresh network map
         nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
         nodeconf.listener.nodes = NodeIndex()  # Ensure fresh listener nodes
-        nodeconf.is_first_run = False
 
         # Add controller
         controller = Node(
@@ -293,7 +290,6 @@ class TestIntegrationScenarios:
         nodeconf.network_map = NodeIndex()  # Ensure fresh network map
         nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
         nodeconf.listener.nodes = NodeIndex()  # Ensure fresh listener nodes
-        nodeconf.is_first_run = False
 
         # Initially all nodes are online
         controller = Node(

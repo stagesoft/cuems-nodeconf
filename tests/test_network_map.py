@@ -96,7 +96,6 @@ class TestNetworkMapOperations:
         """Test that controller nodes are always marked as adopted."""
         nodeconf = CuemsNodeConf()
         nodeconf.network_map = NodeIndex()
-        nodeconf.is_first_run = False
 
         # Add controller and node nodes
         controller_node = Node(
@@ -121,37 +120,5 @@ class TestNetworkMapOperations:
         nodeconf.set_master_always_adopted()
 
         assert nodeconf.network_map['mastermac123']['adopted'] is True
-        # Plain node should remain False (not first run)
-        assert nodeconf.network_map['slavemac1234']['adopted'] is False
-
-    def test_set_master_always_adopted_first_run(self):
-        """Test that on first run, non-controller nodes are not adopted."""
-        nodeconf = CuemsNodeConf()
-        nodeconf.network_map = NodeIndex()
-        nodeconf.is_first_run = True
-
-        # Add controller and node nodes
-        controller_node = Node(
-            uuid='controller-uuid',
-            mac='mastermac123',
-            name='controller_node',
-            node_role=NodeRole.controller,
-            ip='192.168.1.1',
-            adopted=True,  # Was adopted
-        )
-        plain_node = Node(
-            uuid='node-uuid',
-            mac='slavemac1234',
-            name='node',
-            node_role=NodeRole.node,
-            ip='192.168.1.2',
-            adopted=True,  # Was adopted
-        )
-        nodeconf.network_map['mastermac123'] = controller_node
-        nodeconf.network_map['slavemac1234'] = plain_node
-
-        nodeconf.set_master_always_adopted()
-
-        assert nodeconf.network_map['mastermac123']['adopted'] is True
-        # On first run, non-controllers should be False
+        # Non-controllers are untouched by this method
         assert nodeconf.network_map['slavemac1234']['adopted'] is False

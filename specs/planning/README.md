@@ -22,6 +22,7 @@ The other files are what its CONTEXT block asks for, brought in-repo.
 | `05-network-map-api.md` | The shape of `NodeIndex`/`CuemsNetworkMapType` | What you are migrating **onto** |
 | `06-node-model-handover.md` | Feature 007's moved-symbol table and public import path | Confirm 007 landed here; do **not** redo it |
 | `07-public-surface.md` | The public replacements, the version floor, `Timeoutloop` | Wave 0 landed — these exist now |
+| `08-firstrun-signals.md` | **Repo-original, not vendored.** The three signals this repository calls "first run", what feature 001 deleted and why, and the options if genuine first-boot behaviour is ever needed | Written 2026-09-07 during 001's preparation. The deleted branch also closes 008's "left for 009 to reconcile" note in file 05 |
 | `yardstick/test_nodeindex_characterization.py` | **The yardstick** | D22: the swap is done when these pass, not when the code looks equivalent |
 
 ## The one thing to understand before starting
