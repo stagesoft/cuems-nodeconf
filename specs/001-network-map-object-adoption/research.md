@@ -1,16 +1,40 @@
 # Phase 0 — Research
 
-Eight decisions, all measured against `cuems-utils@d0340fc` (`0.1.0rc16`) and this
-repository at plan time. Where a planning document asserted something, it was re-checked
-rather than transcribed; two assertions did not survive.
+Nine decisions — eight from plan time, measured against `cuems-utils@d0340fc` (`0.1.0rc16`),
+and D-I added during implementation. Where a planning document asserted something, it was
+re-checked rather than transcribed; two assertions did not survive planning, and two of this
+file's own (D-A, D-G) did not survive implementation — both revised in place, originals kept.
 
 ---
 
-## D-A — Who owns the map state: the document, not an index
+## D-A — Who owns the map state: one source of truth that refresh always sees
 
-**Decision**: `CuemsNodeConf` holds a **`CuemsNetworkMapType`** as its single source of
-truth. Every mutation derives a `NodeIndex` from `node_list`, mutates it, writes
-`node_list` back, and saves.
+> **Revised during implementation (2026-09-15).** The decision originally recorded here
+> was "hold the **document** as the source of truth and derive an index per mutation".
+> Implementing it literally breaks row 4, so it was reversed in direction while keeping
+> its constraint. The original text is kept below the revision for the record.
+
+**Decision, as implemented**: `self.network_map` **stays a `NodeIndex`** and is the single
+in-memory source of truth. Each refresh builds a `CuemsNetworkMapType` from it, calls
+`refresh`, and reads the merged `node_list` back into the index. Every save builds a
+document from the index the same way.
+
+**Why the original decision was reversed**: `_should_resume_master` (row 4) reads the map
+as an index — `self.network_map.get(self.node['mac'])`. On a `CuemsNetworkMapType` that
+silently returns `None`, disabling resume-master detection and sending a firstrun
+controller down `set_node_role` → `change_network_to_master`: the networking restart that
+method's own comment says must not happen on a resume. A caller that keeps resolving but
+becomes wrong (FR-030a-ii), in a row FR-024 says not to touch.
+
+**Why the reversal is still correct**: the constraint that drove the original decision —
+`refresh` must always see operator adoptions made between passes — is met, because the
+document is rebuilt from the index on every pass rather than held alongside it. Measured:
+the index, the document's `node_list` and `refresh`'s internal index all hold the *same*
+node objects, so nothing is copied and in-place merge updates reach the index.
+
+**Original decision (superseded)**: `CuemsNodeConf` holds a **`CuemsNetworkMapType`** as
+its single source of truth. Every mutation derives a `NodeIndex` from `node_list`, mutates
+it, writes `node_list` back, and saves.
 
 **Rationale**: measured in the library source —
 
@@ -33,10 +57,10 @@ its docstring, and not at all in `ConfigManager`).
 
 **Alternatives considered**:
 
-- *Keep `self.network_map` as a `NodeIndex`, as today.* **Rejected — it silently loses
-  data.** An operator adoption written into a long-lived `NodeIndex` is invisible to
-  `refresh`, which rebuilds from `node_list`; the next discovery pass would discard it.
-  This is the same class of defect as the first-run revert already removed.
+- *Keep `self.network_map` as a `NodeIndex`, as today.* Originally rejected as losing data
+  — but that holds only if a document is *also* kept long-lived beside it. Building the
+  document from the index on every pass removes the divergence, and this is what was
+  implemented (see the revision above).
 - *Hold both and keep them synchronised.* Rejected: two sources of truth for the cluster's
   topology, in a daemon whose constitution names exactly that as a correctness concern.
 - *Ask upstream for a `NodeIndex` accessor.* Reasonable, and worth raising — but it edits
@@ -190,6 +214,17 @@ package is absent or broken. The load already sits inside `run()`'s `sys.exit(-1
 so the failure is loud rather than silent, which is the right shape. Called out for the
 implementer.
 
+> **Revised during implementation (2026-09-15) — the caveat above does not hold.** It
+> assumed `cuems-common` installs `settings.xml`. **No package ships
+> `/etc/cuems/settings.xml`**: not `cuems-common`, not `cuems-utils`, not `cuems-engine`.
+> `cuems-config-node` only *edits* an existing one in place. And `ConfigBase` does not just
+> read it — it validates it against `settings.xsd`, whose past required-field addition
+> (X13, `gradient_osc_port`) invalidated settings files this project had shipped. Moving
+> `read_network_map` onto `ConfigManager` would therefore couple topology discovery to an
+> unrelated configuration file's presence **and** schema validity: today a broken
+> `settings.xml` stops the engine while nodeconf keeps maintaining the map; after the move
+> it would stop both. T004 and T009 are **held for a decision** rather than implemented.
+
 ---
 
 ## D-H — How this repository's CI reaches the yardstick
@@ -211,3 +246,30 @@ repository's test.
   invite editing — the precise failure the vendoring note warns about.
 - *Reach into the sibling checkout.* Rejected: the whole point of the vendoring was to make
   this repository self-contained.
+
+---
+
+## D-I — Two write behaviours the library call alone would lose
+
+*Added during implementation (2026-09-15).*
+
+**Decision**: the daemon keeps a `_map_write_pending` flag that owes the next refresh a
+write, independent of whether discovery changed anything. It starts `True` and is set
+again whenever a save fails.
+
+**Rationale**: measured against `CuemsNetworkMapType.refresh` —
+
+- **Retry after a failed write.** When `save` raises, `refresh` has *already* reassigned
+  `node_list`. On the next pass it therefore sees no change and never retries, leaving the
+  map on disk stale until an unrelated node event. The pre-migration daemon retried every
+  pass, because its signature cache advanced only on a successful write.
+- **The start-up write.** The pre-migration cache began empty, so the first discovery pass
+  always wrote the map. Without the flag, a loaded map identical to discovery is never
+  rewritten at boot.
+
+Both behaviours were pinned by tests committed and proven green against the pre-migration
+code *before* the swap (`test_network_map.py`).
+
+**Alternatives considered**: let `refresh` alone decide. Rejected — the write-if-changed
+rule answers "did discovery change the map?", not "is the disk behind memory?", and the
+daemon is the only party that knows a write failed.

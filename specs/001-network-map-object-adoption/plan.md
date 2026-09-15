@@ -14,10 +14,12 @@ The technical approach is set by one measured fact that neither planning documen
 records: **`CuemsNetworkMapType.refresh` rebuilds its `NodeIndex` from `self["node_list"]`
 on every call and writes the result back**, while `adopt`/`unadopt` are `NodeIndex`
 methods that neither persist nor exist on the document object. There is no public
-`NodeIndex` accessor on either class. So the daemon must hold the **document** as its
-single source of truth and derive an index at each mutation — not the reverse. Holding a
-long-lived `NodeIndex` (what the daemon does today) would have `refresh` silently discard
-every operator adoption.
+`NodeIndex` accessor on either class. So the daemon needs **one** source of truth that
+`refresh` always sees. As implemented, that is the `NodeIndex` — unchanged in type, because
+row 4's `_should_resume_master` reads it by MAC — with a document built from it for every
+pass and read back after (research D-A, revised during implementation; the plan first had
+this the other way round). A long-lived document *beside* a long-lived index would have
+`refresh` silently discard operator adoptions.
 
 ## Technical Context
 

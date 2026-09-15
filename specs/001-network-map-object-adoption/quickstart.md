@@ -42,7 +42,8 @@ the guarantee is lost. Its fixes belong in `cuems-utils` and are re-vendored fro
 
 # SC-002 — none of the nine replaced methods survive
 grep -nE 'def (refresh_network_map|_map_signature|write_network_map|merge_discovered_nodes|set_master_always_adopted|check_missing_adopted_nodes|adopt_node|unadopt_node|read_network_map)' \
-  cuemsnodeconf/CuemsNodeConf.py                    # expect: refresh_network_map only, as a thin caller
+  cuemsnodeconf/CuemsNodeConf.py                    # expect: refresh_network_map, adopt_node, unadopt_node,
+                                                    #   read_network_map — thin adapters, no ad hoc logic
 
 # SC-004 — the retired key is gone outside the vendored snapshots
 grep -rn 'node_type' --exclude-dir=.git --exclude-dir=.venv \

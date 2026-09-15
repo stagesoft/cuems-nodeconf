@@ -44,10 +44,10 @@ story. Settle it once, first, so the three stories do not collide in it.
 
 **⚠️ CRITICAL**: no user story work begins until this phase is complete.
 
-- [ ] T004 Replace `from cuemsutils.xml.settings import NetworkMap as _NetworkMapReader` with `from cuemsutils.tools.ConfigManager import ConfigManager` in `cuemsnodeconf/CuemsNodeConf.py:23` (FR-013)
+- [ ] T004 🚧 **HELD — decision pending (research D-G, revised).** Replace `from cuemsutils.xml.settings import NetworkMap as _NetworkMapReader` with a public read path in `cuemsnodeconf/CuemsNodeConf.py`. The planned `ConfigManager` requires `/etc/cuems/settings.xml` at construction — which no package ships — and schema-validates it, coupling topology discovery to an unrelated config file (FR-013)
 - [X] T005 Delete `from cuemsutils.xml.mapper import Mapper, read_config_document` from `cuemsnodeconf/CuemsNodeConf.py:22` outright — measured to have no call site beyond the import line (FR-013)
 - [X] T006 Replace `from cuemsutils.timeoutloop import Timeoutloop` with `from cuemsutils.tools.TimeoutLoop import TimeoutLoop` in `cuemsnodeconf/CuemsNodeConf.py:26` and update all three call sites (`:327`, `:653`, `:665` — re-measured; the plan's `:635`/`:647` were stale) (FR-014)
-- [ ] T007 Confirm SC-008's **two** halves: `grep -n 'cuemsutils\.xml\|cuemsutils\.timeoutloop' cuemsnodeconf/*.py` produces no output (no internal or deprecated import paths remain), **and** `.venv/bin/python -m pytest -q 2>&1 | grep -i deprecat` produces no output (all three `TimeoutLoop` call sites moved, not just one)
+- [ ] T007 Confirm SC-008's **two** halves: no `cuemsutils.xml` / `cuemsutils.timeoutloop` import remains in `cuemsnodeconf/*.py`, **and** `.venv/bin/python -m pytest -q 2>&1 | grep -i deprecat` is empty. **Deprecation half done** (9 warnings → 0); the import half waits on T004
 
 **Checkpoint**: imports are on public, current paths; the file compiles; the suite still passes.
 
@@ -69,22 +69,22 @@ the controller, with the persistence check.
 
 ### State ownership (research D-A — do this before anything that uses the map)
 
-- [ ] T008 [US1] Change `self.network_map` to hold a `CuemsNetworkMapType` rather than a `NodeIndex` in `cuemsnodeconf/CuemsNodeConf.py:__init__` (`:50`), initialising it as an empty document (FR-005)
-- [ ] T009 [US1] Rewrite `read_network_map` (`:598`) to load through `ConfigManager(config_dir=CUEMS_CONF_PATH).load_network_map()` then `.network_map`, assigning the returned `CuemsNetworkMapType` to `self.network_map` (FR-005)
-- [ ] T010 [US1] Add a private helper in `cuemsnodeconf/CuemsNodeConf.py` that derives a `NodeIndex` from `self.network_map["node_list"]` keyed by `item["node"]["mac"]`, mirroring what `CuemsNetworkMapType.refresh` does internally (FR-005)
-- [ ] T011 [US1] Add its counterpart that writes an index back as `self.network_map["node_list"] = [{"node": n} for n in index.values()]` and calls `self.network_map.save(self.map_path)` (FR-005)
+- [X] T008 [US1] Keep `self.network_map` as the `NodeIndex` working set in `cuemsnodeconf/CuemsNodeConf.py` — revised from "make it a `CuemsNetworkMapType`", which would break row 4's `_should_resume_master` lookup by MAC (research D-A, revised) (FR-005)
+- [ ] T009 [US1] 🚧 **HELD with T004.** `read_network_map` in `cuemsnodeconf/CuemsNodeConf.py` already builds its index through `_index_from_document`; only its loader line changes once the public read path is decided (FR-005)
+- [X] T010 [US1] Add `_network_map_document()` in `cuemsnodeconf/CuemsNodeConf.py`, building a `CuemsNetworkMapType` from the index for every refresh and save (FR-005)
+- [X] T011 [US1] Add `_index_from_document()` reading a document's `node_list` back into an index without copying nodes, and `_save_network_map()` persisting the index and owing a failed write to the next refresh, in `cuemsnodeconf/CuemsNodeConf.py` (FR-005)
 
 ### The refresh path
 
-- [X] T012 [US1] Replace `refresh_network_map`'s four-step body (`:247`) with a single `self.network_map.refresh(self.listener.nodes, self.map_path)` call, keeping its existing `PermissionError` and general exception handling around it (FR-002, FR-006)
-- [X] T013 [US1] Add an explicit `missing_adopted(self.listener.nodes)` call in `refresh_network_map` on a derived index, re-emitting today's `Missing adopted nodes: [...]` warning and its `All adopted nodes are present` debug counterpart (FR-007)
+- [X] T012 [US1] Replace `refresh_network_map`'s four-step body with `document.refresh(self.listener.nodes, self.map_path)` on a document built from the index and read back after, keeping its `PermissionError` and general exception handling, plus `_map_write_pending` so a failed write is retried and the start-up write kept (research D-I), in `cuemsnodeconf/CuemsNodeConf.py` (FR-002, FR-006)
+- [X] T013 [US1] Add an explicit `self.network_map.missing_adopted(discovered)` call in `refresh_network_map` in `cuemsnodeconf/CuemsNodeConf.py`, re-emitting today's `Missing adopted nodes: [...]` warning and its `All adopted nodes are present` debug counterpart (FR-007)
 - [X] T014 [US1] Delete `_map_signature` (`:299`), `merge_discovered_nodes` (`:458`), `set_master_always_adopted` (`:508`) and `check_missing_adopted_nodes` (`:537`) from `cuemsnodeconf/CuemsNodeConf.py` (FR-001, FR-004)
 - [X] T015 [US1] Delete `write_network_map` (`:431`) from `cuemsnodeconf/CuemsNodeConf.py`, including its `required_fields` pre-check — an artifact the schema already enforces on the same write (FR-008)
 - [X] T016 [US1] Delete `self._last_map_sig` from `__init__` (`:57`) — `refresh` owns the write decision now and compares the signature itself
 
 ### Adopt and unadopt
 
-- [X] T017 [US1] Rewrite `adopt_node` (`:552`) in `cuemsnodeconf/CuemsNodeConf.py` to derive an index, call `NodeIndex.adopt(node_uuid)`, and **on success write back and save** (research D-D) (FR-003)
+- [X] T017 [US1] Rewrite `adopt_node` in `cuemsnodeconf/CuemsNodeConf.py` to call `NodeIndex.adopt(node_uuid)` on `self.network_map`, detect "already adopted" by `signature()` not moving, and **save before answering** (research D-D) (FR-003)
 - [X] T018 [US1] Rewrite `unadopt_node` (`:573`) the same way against `NodeIndex.unadopt(node_uuid)`, preserving today's "unadopting offline node" info log (FR-003)
 - [X] T019 [US1] Implement the failure discrimination in both: on `False`, look the uuid up in the derived index and select `Node {uuid} not found` (absent), `Cannot adopt node {uuid}: node is offline` (present and offline) or `Cannot unadopt master node` (present and controller), per `contracts/engine-rpc.md` (FR-010)
 - [X] T020 [US1] Verify `engine_callback` (`:113-161`) still forwards only `OK` and `error`, still answers the unknown-action branch and still answers from its exception handler — no change expected, but FR-009 and FR-011 make it a checked invariant rather than an assumption
@@ -101,7 +101,7 @@ the controller, with the persistence check.
 - [X] T025 [P] [US1] Update `tests/test_missing_nodes.py` for the explicit `missing_adopted` call
 - [X] T026 [US1] Run `.venv/bin/python -m pytest specs/planning/yardstick/ -q` — must be 15 passed, **unchanged**. If it fails, the port is wrong; do not edit the yardstick (SC-001)
 - [X] T027 [US1] Run `.venv/bin/python -m pytest -q` — all pass, nothing skipped (SC-005)
-- [ ] T028 [US1] Confirm SC-002 by grep: none of the nine replaced method definitions remain except `refresh_network_map` as a thin caller
+- [X] T028 [US1] Confirm SC-002 by grep in `cuemsnodeconf/CuemsNodeConf.py`: five of the nine row-5 methods are gone, and `refresh_network_map`, `adopt_node`, `unadopt_node` and `read_network_map` remain only as thin adapters over the library
 
 **Checkpoint**: User Story 1 is complete and mergeable on its own. `quickstart.md` §3 can now be walked on the controller.
 

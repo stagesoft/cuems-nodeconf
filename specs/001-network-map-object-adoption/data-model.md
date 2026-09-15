@@ -10,14 +10,17 @@ changes**, even though none of the shapes do.
 
 | | Today | After |
 |---|---|---|
-| Working set | `self.network_map` is a **`NodeIndex`**, built by hand in `read_network_map` | `self.network_map` is a **`CuemsNetworkMapType`** — the document |
-| Index | the working set itself | derived per operation from `node_list`, discarded after |
+| Working set | `self.network_map` is a **`NodeIndex`**, built by hand in `read_network_map` | `self.network_map` is **still a `NodeIndex`** — row 4 reads it by MAC |
+| Document | built only inside `write_network_map` | a `CuemsNetworkMapType` built from the index for every refresh and save, read back after refresh, then discarded |
 | Merge / controller-adopted / write decision | nine daemon methods | `CuemsNetworkMapType.refresh(discovered, path)` |
-| Adopt / unadopt | daemon methods returning dicts | `NodeIndex.adopt`/`.unadopt` returning bools, on a derived index, written back and saved |
+| Adopt / unadopt | daemon methods returning dicts | `NodeIndex.adopt`/`.unadopt` returning bools, on `self.network_map`, saved through a document built from it |
 | Reporting | `check_missing_adopted_nodes` | `NodeIndex.missing_adopted(discovered)`, called by the daemon |
 
-The direction of the arrow matters: **the document owns `node_list`; the index is a view**.
-Getting this backwards loses operator adoptions (research D-A).
+What matters is that there is **one** source of truth and `refresh` always sees it. The
+index owns the in-memory state; the document is its persisted form, rebuilt for every write
+and read back after every refresh. A long-lived document *beside* a long-lived index is
+what would lose operator adoptions (research D-A, revised during implementation — the plan
+originally had the arrow the other way, which breaks row 4's lookup by MAC).
 
 ---
 
@@ -33,8 +36,9 @@ validated against `network_map.xsd` on save.
 - **`save(path) -> None`** — validates then writes. Raises `SchemaError` on a document that
   does not match the schema; `OSError` propagates unwrapped. No default path.
 
-**Obtained by**: `ConfigManager.load_network_map()` then `.network_map`. Measured equal in
-result to the internal reader it replaces.
+**Obtained by**: today, the internal reader in `read_network_map`. The planned public path,
+`ConfigManager.load_network_map()` then `.network_map`, is measured equal in result — but is
+**held**: it requires `/etc/cuems/settings.xml`, which no package ships (research D-G, revised).
 
 **Validation**: the schema requires `uuid`, `mac`, `name`, `node_role`, `ip` and `online`.
 The daemon's own pre-save check on those fields is **not** carried over — the schema
@@ -42,10 +46,11 @@ enforces the same thing on the same write, and the local check predates that pat
 
 ---
 
-## Node index (view)
+## Node index (the working set)
 
-`cuemsutils.tools.NodeList.NodeIndex` — a MAC-keyed mapping of node records, derived from
-`node_list` by `{item["node"]["mac"]: item["node"]}`.
+`cuemsutils.tools.NodeList.NodeIndex` — a MAC-keyed mapping of node records. It **is**
+`self.network_map`; `refresh` also derives a transient one from a document's `node_list` by
+`{item["node"]["mac"]: item["node"]}`, over the same node objects.
 
 | Method | Contract |
 |---|---|
