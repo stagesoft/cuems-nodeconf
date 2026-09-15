@@ -55,8 +55,12 @@ class CuemsNodeConf():
         self.stop_requested = False
         # Set by avahi discovery callbacks; the worker loop wakes on it.
         self._dirty = threading.Event()
-        # Signature of the last map we wrote, so we only rewrite /etc on change.
-        self._last_map_sig = None
+        # Owe the next refresh a write even if nothing changed: at start-up (the
+        # first discovery pass always writes the map) and after any write that
+        # failed (a failure is retried every pass, not only on the next change).
+        # CuemsNetworkMapType.refresh decides whether *discovery* changed the
+        # map; it cannot know that the disk is behind.
+        self._map_write_pending = True
         # Lazily-created collaborators (so stop() can tear them down safely).
         self.communications_thread = None
         self.zeroconf = None
@@ -244,23 +248,57 @@ class CuemsNodeConf():
         self._run_worker_loop()
 
     def refresh_network_map(self):
-        """Merge discovery into the map; write to /etc only if content changed."""
-        self.merge_discovered_nodes()
-        self.set_master_always_adopted()
-        self.check_missing_adopted_nodes()
-        sig = self._map_signature(self.network_map)
-        if sig == self._last_map_sig:
-            Logger.debug('network_map unchanged; skipping write')
-            return
+        """Merge discovery into the map; write to /etc only if content changed.
+
+        The merge, the controller-always-adopted rule and the write-if-changed
+        decision are CuemsNetworkMapType.refresh's (feature 001, D22). The index
+        in self.network_map stays the single in-memory source of truth: a
+        document is built from it for each pass and read back into it after, so
+        an operator adoption made between passes is never lost to a stale copy.
+        """
+        discovered = self.listener.nodes
+        document = self._network_map_document()
         try:
-            self.write_network_map(self.network_map)
-            self._last_map_sig = sig
+            wrote = document.refresh(discovered, self.map_path)
+            if not wrote and self._map_write_pending:
+                document.save(self.map_path)
+                wrote = True
+            self._map_write_pending = False
+            if not wrote:
+                Logger.debug('network_map unchanged; skipping write')
         except PermissionError as e:
+            self._map_write_pending = True
             Logger.error(f"Permission denied writing network map to {self.map_path}: {e}")
             Logger.exception(e)
         except Exception as e:
+            self._map_write_pending = True
             Logger.error(f"Error writing network map: {type(e).__name__}: {e}")
             Logger.exception(e)
+        finally:
+            # refresh reassigns node_list before it saves, so this is the merged
+            # state whether or not the write landed.
+            self.network_map = self._index_from_document(document)
+
+        # Reporting only — deliberately outside refresh's orchestration (FR-007).
+        missing = self.network_map.missing_adopted(discovered)
+        if missing:
+            labels = [f"{n.get('name')} ({n.get('uuid')})" for n in missing]
+            Logger.warning(f'Missing adopted nodes: {labels}')
+        else:
+            Logger.debug('All adopted nodes are present')
+
+    def _network_map_document(self):
+        """The persisted form of self.network_map, built fresh from the index."""
+        return CuemsNetworkMapType(node_list=[{"node": n} for n in self.network_map.values()])
+
+    @staticmethod
+    def _index_from_document(document):
+        """The MAC-keyed index over a network-map document's nodes (no copies)."""
+        index = NodeIndex()
+        for item in document.get('node_list') or []:
+            node = item.get('node') if isinstance(item, dict) else item
+            index[node['mac']] = node
+        return index
 
     def _run_worker_loop(self):
         """Resident loop: on each (debounced) avahi event or every 30 s, refresh
@@ -294,20 +332,6 @@ class CuemsNodeConf():
         the actual merge/write happens there, debounced."""
         Logger.debug(f'avahi event: action={action} node={caller_node}')
         self._dirty.set()
-
-    def _map_signature(self, nmap):
-        """Stable signature of the persisted fields, to detect real changes."""
-        sig = []
-        for mac in sorted(nmap.keys()):
-            node = nmap[mac]
-            role = node.get('node_role')
-            role = role.name if hasattr(role, 'name') else str(role)
-            sig.append((
-                mac, node.get('uuid'), role, node.get('ip'),
-                bool(node.get('adopted', False)), bool(node.get('online', False)),
-                node.get('role_id'), node.get('alias'), node.get('hostname'),
-            ))
-        return tuple(sig)
 
     def notify_systemd(self, status='READY=1'):
 
@@ -436,6 +460,7 @@ class CuemsNodeConf():
             for field in required_fields:
                 if node.get(field) is None:
                     Logger.error(f"Node {mac} has None value for required field '{field}'. Node data: {dict(node)}")
+                    self._map_write_pending = True
                     raise ValueError(f"Cannot write network map: Node {mac} has None value for required field '{field}'")
 
         # feature 007 (T076): CuemsNetworkMapType.save() validates (T1) then
@@ -450,103 +475,14 @@ class CuemsNodeConf():
         try:
             netmap.save(self.map_path)
         except SchemaError as e:
+            self._map_write_pending = True
             Logger.error(f"Network map failed validation: {e}")
             raise
+        except Exception:
+            self._map_write_pending = True
+            raise
+        self._map_write_pending = False
         Logger.debug("Network map written to XML (atomic)")
-
-    def merge_discovered_nodes(self):
-        Logger.debug('Merging discovered nodes with network_map')
-        # Match discovered nodes to the existing map by UUID, the stable primary
-        # key (per the node-identity model). We must NOT key on the mac derived
-        # from the avahi service name: the controller advertises its service as
-        # 'controller' (so peers resolve controller.local), not its MAC, so
-        # get_mac() yields a garbage key ('controller._'). Keying merges on that
-        # created a DUPLICATE controller node every discovery pass and flipped
-        # the real (mac-keyed) entry to online=False, orphaning the operator
-        # fields role_id/alias/hostname.
-        existing_by_uuid = {
-            node.get('uuid'): (mac, node)
-            for mac, node in self.network_map.items()
-            if node.get('uuid')
-        }
-
-        discovered_uuids = set()
-        for _disc_key, discovered_node in self.listener.nodes.items():
-            d_uuid = discovered_node.get('uuid')
-            if d_uuid:
-                discovered_uuids.add(d_uuid)
-
-            match = existing_by_uuid.get(d_uuid)
-            if match is not None:
-                mac, existing_node = match
-                preserved_adopted = existing_node.get('adopted', False)
-                # Refresh mutable discovery fields (ip, name, node_role) in
-                # place but keep the real mac key and the operator fields; never
-                # clobber the real mac with the name-parse.
-                existing_node.update(
-                    {k: v for k, v in discovered_node.items() if k != 'mac'}
-                )
-                existing_node['adopted'] = preserved_adopted
-                existing_node['online'] = True
-                Logger.debug(f'Merged discovered uuid={d_uuid} into existing node {mac}, preserved adopted={preserved_adopted}')
-            else:
-                # Genuinely new node. Real slaves name their service by MAC, so
-                # the discovered key is the real mac here.
-                key = discovered_node.get('mac')
-                self.network_map[key] = discovered_node
-                self.network_map[key]['adopted'] = False
-                self.network_map[key]['online'] = True
-                Logger.debug(f'Added new discovered node uuid={d_uuid} key={key}')
-
-        # Offline pass keyed on UUID, not mac (same reason as above).
-        for mac, node in self.network_map.items():
-            if node.get('uuid') not in discovered_uuids:
-                node['online'] = False
-                Logger.debug(f'Node {mac} (uuid={node.get("uuid")}) is offline')
-
-    def set_master_always_adopted(self):
-        # An `if self.is_first_run:` branch used to follow, clearing `adopted`
-        # on every non-controller node. Deleted: it had no reachable correct
-        # effect, and one reachable harmful one.
-        #
-        # `is_first_run` means "no network_map.xml existed at boot" (:176), so
-        # nothing adopted can have been loaded from disk. With an empty map,
-        # merge_discovered_nodes takes its else-branch for every discovered node
-        # and sets adopted=False (:498); CuemsAvahiListener constructs every node
-        # with adopted=False in both add_service and update_service; and nothing
-        # between the map's creation and the first refresh writes `adopted` at
-        # all. So on the run the branch was written for, every non-controller was
-        # already False by the time it ran.
-        #
-        # The flag is computed once and never reset, while the daemon is now
-        # resident (it used to run one pass and exit). So its only live effect
-        # was on a first-boot controller: an operator adoption via
-        # nodelist_modify -> adopt_node was cleared again by the next worker tick,
-        # within 30 s, silently, after the UI had already been told {'OK': True}.
-        #
-        # NOTE: this reasoning depends on is_first_run meaning "no map file on
-        # disk". If it is ever redefined -- e.g. to mean the firstrun ROLE, which
-        # is a different signal entirely -- revisit rather than assume.
-        # See specs/planning/08-firstrun-signals.md.
-        for mac, node in self.network_map.items():
-            if node.get('node_role') == NodeRole.controller:
-                node['adopted'] = True
-                Logger.debug(f'Set master node {mac} as always adopted')
-
-    def check_missing_adopted_nodes(self):
-        adopted_nodes = [node for node in self.network_map.values() if node.get('adopted')]
-        discovered_uuids = {node.get('uuid') for node in self.listener.nodes.values()}
-
-        missing_adopted = []
-        for node in adopted_nodes:
-            if node.get('uuid') not in discovered_uuids:
-                missing_adopted.append(node)
-
-        if missing_adopted:
-            labels = [f"{n.get('name')} ({n.get('uuid')})" for n in missing_adopted]
-            Logger.warning(f'Missing adopted nodes: {labels}')
-        else:
-            Logger.debug('All adopted nodes are present')
 
     def adopt_node(self, node_uuid):
         for node in self.network_map.values():
@@ -600,10 +536,7 @@ class CuemsNodeConf():
         # adapter table now decodes node_role straight to NodeRole (R1), so
         # there is nothing left to normalise here.
         reader = _NetworkMapReader(self.map_path)
-        self.network_map = NodeIndex()
-        for node_item in reader.get_dict().get('node_list', []) or []:
-            node = node_item.get('node') if isinstance(node_item, dict) else node_item
-            self.network_map[node['mac']] = node
+        self.network_map = self._index_from_document(reader.get_dict())
 
         Logger.debug("---")
         Logger.debug("Nodes read from existing XML network map:")

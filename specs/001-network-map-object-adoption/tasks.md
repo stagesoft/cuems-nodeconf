@@ -76,11 +76,11 @@ the controller, with the persistence check.
 
 ### The refresh path
 
-- [ ] T012 [US1] Replace `refresh_network_map`'s four-step body (`:247`) with a single `self.network_map.refresh(self.listener.nodes, self.map_path)` call, keeping its existing `PermissionError` and general exception handling around it (FR-002, FR-006)
-- [ ] T013 [US1] Add an explicit `missing_adopted(self.listener.nodes)` call in `refresh_network_map` on a derived index, re-emitting today's `Missing adopted nodes: [...]` warning and its `All adopted nodes are present` debug counterpart (FR-007)
-- [ ] T014 [US1] Delete `_map_signature` (`:299`), `merge_discovered_nodes` (`:458`), `set_master_always_adopted` (`:508`) and `check_missing_adopted_nodes` (`:537`) from `cuemsnodeconf/CuemsNodeConf.py` (FR-001, FR-004)
+- [X] T012 [US1] Replace `refresh_network_map`'s four-step body (`:247`) with a single `self.network_map.refresh(self.listener.nodes, self.map_path)` call, keeping its existing `PermissionError` and general exception handling around it (FR-002, FR-006)
+- [X] T013 [US1] Add an explicit `missing_adopted(self.listener.nodes)` call in `refresh_network_map` on a derived index, re-emitting today's `Missing adopted nodes: [...]` warning and its `All adopted nodes are present` debug counterpart (FR-007)
+- [X] T014 [US1] Delete `_map_signature` (`:299`), `merge_discovered_nodes` (`:458`), `set_master_always_adopted` (`:508`) and `check_missing_adopted_nodes` (`:537`) from `cuemsnodeconf/CuemsNodeConf.py` (FR-001, FR-004)
 - [ ] T015 [US1] Delete `write_network_map` (`:431`) from `cuemsnodeconf/CuemsNodeConf.py`, including its `required_fields` pre-check — an artifact the schema already enforces on the same write (FR-008)
-- [ ] T016 [US1] Delete `self._last_map_sig` from `__init__` (`:57`) — `refresh` owns the write decision now and compares the signature itself
+- [X] T016 [US1] Delete `self._last_map_sig` from `__init__` (`:57`) — `refresh` owns the write decision now and compares the signature itself
 
 ### Adopt and unadopt
 
