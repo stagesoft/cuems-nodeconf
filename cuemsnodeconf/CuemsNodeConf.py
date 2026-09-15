@@ -19,11 +19,10 @@ from .CuemsAvahiListener import CuemsAvahiListener
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole
 from cuemsutils.tools.NodeList import node as Node
 from cuemsutils.config.network_map import CuemsNetworkMapType
-from cuemsutils.xml.mapper import Mapper, read_config_document
 from cuemsutils.xml.settings import NetworkMap as _NetworkMapReader
 from cuemsutils.errors import SchemaError
 
-from cuemsutils.timeoutloop import Timeoutloop
+from cuemsutils.tools.TimeoutLoop import TimeoutLoop
 from cuemsutils.log import Logger, logged
 from .communicate import AsyncCommsThread, TIMEOUT
 import asyncio
@@ -324,7 +323,7 @@ class CuemsNodeConf():
         self.controller_ip = None
         self.cluster_iface = None
         self.ui_iface = None
-        for passed in Timeoutloop(timeout=10, interval=1):
+        for passed in TimeoutLoop(timeout=10, interval=1):
             try:
                 self.ip = netifaces.ifaddresses('bridge0:avahi')[netifaces.AF_INET][0]['addr']
                 self.cluster_iface = 'bridge0'
@@ -650,7 +649,7 @@ class CuemsNodeConf():
         Wait for the local service to be registered and discovered by the Avahi listener.
         This ensures the service is available before we try to retrieve it.
         """
-        for passed in Timeoutloop(timeout=5, interval=0.2):
+        for passed in TimeoutLoop(timeout=5, interval=0.2):
             for node in self.listener.nodes.values():
                 if node.get('ip') == self.ip:
                     Logger.debug(f"Local service registered and discovered: {node.get('name')}")
@@ -658,18 +657,18 @@ class CuemsNodeConf():
             
             Logger.debug("Waiting for local service to be registered...")
         
-        # Timeout occurred - Timeoutloop will raise TimeoutError
+        # Timeout occurred - TimeoutLoop will raise TimeoutError
         raise TimeoutError('Local service registration not detected within timeout period')
 
     def retreive_local_node(self):
-        for passed in Timeoutloop(timeout=10, interval=1):
+        for passed in TimeoutLoop(timeout=10, interval=1):
             for node in self.listener.nodes.values():
                 if node.get('ip') == self.ip:
                     return node
 
             Logger.debug("waiting for local node to appear on the network")
         
-        # Timeout occurred - Timeoutloop will raise TimeoutError
+        # Timeout occurred - TimeoutLoop will raise TimeoutError
         raise TimeoutError('Local node not found within timeout period')
         
 

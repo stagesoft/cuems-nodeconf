@@ -31,9 +31,9 @@ Single flat Python package at the repository root: `cuemsnodeconf/`, `tests/`,
 
 **Purpose**: establish a trustworthy baseline before anything moves.
 
-- [ ] T001 Re-run `.venv/bin/pip install -e /home/stagelab/cuems-utils` so the installed metadata reports `0.1.0rc16` instead of the stale `0.1.0rc15`; confirm with `.venv/bin/pip show cuemsutils`
-- [ ] T002 Record the baseline: `.venv/bin/python -m pytest -q` (expect 80 passed) and `.venv/bin/python -m pytest specs/planning/yardstick/ -q` (expect 15 passed); note both numbers in the PR description
-- [ ] T003 Re-measure every coordinate in `plan.md`'s per-file scope table against the current `cuemsnodeconf/CuemsNodeConf.py` and correct the table in place if anything has moved
+- [X] T001 Re-run `.venv/bin/pip install -e /home/stagelab/cuems-utils` so the installed metadata reports `0.1.0rc16` instead of the stale `0.1.0rc15`; confirm with `.venv/bin/pip show cuemsutils`
+- [X] T002 Record the baseline: `.venv/bin/python -m pytest -q` (expect 80 passed) and `.venv/bin/python -m pytest specs/planning/yardstick/ -q` (expect 15 passed); note both numbers in the PR description
+- [X] T003 Re-measure every coordinate in `plan.md`'s per-file scope table against the current `cuemsnodeconf/CuemsNodeConf.py` and correct the table in place if anything has moved
 
 ---
 
@@ -45,8 +45,8 @@ story. Settle it once, first, so the three stories do not collide in it.
 **⚠️ CRITICAL**: no user story work begins until this phase is complete.
 
 - [ ] T004 Replace `from cuemsutils.xml.settings import NetworkMap as _NetworkMapReader` with `from cuemsutils.tools.ConfigManager import ConfigManager` in `cuemsnodeconf/CuemsNodeConf.py:23` (FR-013)
-- [ ] T005 Delete `from cuemsutils.xml.mapper import Mapper, read_config_document` from `cuemsnodeconf/CuemsNodeConf.py:22` outright — measured to have no call site beyond the import line (FR-013)
-- [ ] T006 Replace `from cuemsutils.timeoutloop import Timeoutloop` with `from cuemsutils.tools.TimeoutLoop import TimeoutLoop` in `cuemsnodeconf/CuemsNodeConf.py:26` and update all three call sites (`:327`, `:635`, `:647`) (FR-014)
+- [X] T005 Delete `from cuemsutils.xml.mapper import Mapper, read_config_document` from `cuemsnodeconf/CuemsNodeConf.py:22` outright — measured to have no call site beyond the import line (FR-013)
+- [X] T006 Replace `from cuemsutils.timeoutloop import Timeoutloop` with `from cuemsutils.tools.TimeoutLoop import TimeoutLoop` in `cuemsnodeconf/CuemsNodeConf.py:26` and update all three call sites (`:327`, `:653`, `:665` — re-measured; the plan's `:635`/`:647` were stale) (FR-014)
 - [ ] T007 Confirm SC-008's **two** halves: `grep -n 'cuemsutils\.xml\|cuemsutils\.timeoutloop' cuemsnodeconf/*.py` produces no output (no internal or deprecated import paths remain), **and** `.venv/bin/python -m pytest -q 2>&1 | grep -i deprecat` produces no output (all three `TimeoutLoop` call sites moved, not just one)
 
 **Checkpoint**: imports are on public, current paths; the file compiles; the suite still passes.
