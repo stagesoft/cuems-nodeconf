@@ -36,9 +36,11 @@ validated against `network_map.xsd` on save.
 - **`save(path) -> None`** — validates then writes. Raises `SchemaError` on a document that
   does not match the schema; `OSError` propagates unwrapped. No default path.
 
-**Obtained by**: today, the internal reader in `read_network_map`. The planned public path,
-`ConfigManager.load_network_map()` then `.network_map`, is measured equal in result — but is
-**held**: it requires `/etc/cuems/settings.xml`, which no package ships (research D-G, revised).
+**Obtained by**: `ConfigManager.load_network_map()` then `.network_map`, from the map's own
+directory — measured equal in result to the internal reader it replaced. `ConfigManager`
+requires `settings.xml` beside the map; every node has both (research D-G, revised). Its
+final step looks up this node's own entry and raises on a map that does not list the node
+yet — every freshly provisioned node — so `read_network_map` catches only that lookup.
 
 **Validation**: the schema requires `uuid`, `mac`, `name`, `node_role`, `ip` and `online`.
 The daemon's own pre-save check on those fields is **not** carried over — the schema

@@ -17,6 +17,9 @@ are therefore manual, on the live controller, and no amount of green suite subst
   `.venv/bin/pip install -e /path/to/cuems-utils` — editable installs freeze the version
   in their metadata at install time, and the packaged floor cannot be validated against a
   stale one.
+- No `/etc/cuems` is needed for §1–§2. Tests that reach `ConfigManager` provision
+  `settings.xml` and `network_map.xml` through the `cuems_conf_dir` fixture
+  (`tests/fixtures/etc_cuems/`). On a node both files are always present.
 - For §4 only: the sibling `cuems-common` checkout carrying flow 03's half.
 - For §3 and §4: SSH to the controller running this daemon.
 

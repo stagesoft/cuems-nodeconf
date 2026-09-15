@@ -214,16 +214,41 @@ package is absent or broken. The load already sits inside `run()`'s `sys.exit(-1
 so the failure is loud rather than silent, which is the right shape. Called out for the
 implementer.
 
-> **Revised during implementation (2026-09-15) — the caveat above does not hold.** It
-> assumed `cuems-common` installs `settings.xml`. **No package ships
-> `/etc/cuems/settings.xml`**: not `cuems-common`, not `cuems-utils`, not `cuems-engine`.
-> `cuems-config-node` only *edits* an existing one in place. And `ConfigBase` does not just
-> read it — it validates it against `settings.xsd`, whose past required-field addition
-> (X13, `gradient_osc_port`) invalidated settings files this project had shipped. Moving
-> `read_network_map` onto `ConfigManager` would therefore couple topology discovery to an
-> unrelated configuration file's presence **and** schema validity: today a broken
-> `settings.xml` stops the engine while nodeconf keeps maintaining the map; after the move
-> it would stop both. T004 and T009 are **held for a decision** rather than implemented.
+> **Revised during implementation (2026-09-15).** The move was briefly held. A file search
+> of the sibling checkouts found no package that ships `/etc/cuems/settings.xml`
+> (`cuems-config-node` only edits an existing one), and `ConfigBase` schema-validates the
+> file at construction — so the concern was that topology discovery would become coupled
+> to an unrelated configuration file.
+>
+> **Resolved the same day, by the maintainer:** `cuems-nodeconf` is never a standalone
+> service. Its `cuems-utils` and `cuems-common` dependencies provision
+> `/etc/cuems/settings.xml` on every node, so nodeconf always finds both `settings.xml` and
+> `network_map.xml`. The premise rests on that statement; the file search did not locate
+> the provisioning step. **The decision above stands and is implemented** (T004/T009),
+> reading from the map's own directory so the read and write paths are the same file.
+>
+> Consequence, accepted: a `settings.xml` that fails validation now stops nodeconf's boot
+> read as well as the engine — loudly, never by falling back to an empty map. Tests and
+> standalone development provision both files through the `cuems_conf_dir` fixture
+> (`tests/fixtures/etc_cuems/`), never the real `/etc/cuems`.
+>
+> **Found while implementing it — a contract the internal reader did not have.**
+> `ConfigManager.load_network_map()` ends by resolving *this node's own entry* by the
+> `settings.xml` uuid, and raises `ValueError` when the map does not list it. That is
+> every freshly provisioned node: `cuems-config-node write` gives `settings.xml` a new
+> uuid and leaves `network_map.xml` alone, and `cuems-common` ships a map listing one
+> controller. Measured on exactly that node: the public path raised, the internal reader
+> loaded, and the engine's own `load_all=True` path raised too. nodeconf is the service
+> that writes a new node into the map, so it must be able to read such a map. The earlier
+> "equal in result" measurement missed this only because its fixture happened to contain
+> the settings uuid.
+>
+> **Decision (maintainer, 2026-09-15):** `read_network_map` catches **only** that
+> lookup's `ValueError`. By then the map is loaded and validated; broken documents raise
+> `SchemaError`/`ValidationError`, which are not `ValueError`s; and if the map was not
+> populated the exception propagates. Pinned by `test_reads_a_map_that_does_not_list_this_node_yet`
+> and `test_a_map_that_fails_validation_still_fails_loudly`. **Upstream, to report:** the
+> eager lookup makes the accessor unusable as-is by the map's own writer.
 
 ---
 
