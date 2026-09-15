@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
+from cuemsutils.config.network_map import CuemsNetworkMapType
 
 
 class TestEngineCallback:
@@ -174,3 +175,98 @@ class TestEveryRequestGetsAnAnswer:
         assert mock_run.called
         response = nodeconf.communications_thread.respond_to_engine.call_args[0][0]
         assert response['OK'] is False
+
+
+class TestTheOperatorsOutcomeTable:
+    """contracts/engine-rpc.md's outcome table, through the real dispatch path.
+
+    adopt_node and unadopt_node run for real — only the map write is patched —
+    so these pin the exact response cuems-frontend's settings component
+    receives in every case (FR-009, FR-010), and that a successful change is
+    saved BEFORE the answer goes out: an {'OK': True} for a change that is not
+    on disk is a lie the operator cannot see.
+    """
+
+    def _nodeconf(self):
+        nodeconf = CuemsNodeConf()
+        nodeconf.network_map = NodeIndex()
+        for mac, uuid, role, adopted, online in (
+            ('controllermac', 'controller-uuid', NodeRole.controller, True, True),
+            ('onlinemac1234', 'online-uuid', NodeRole.node, False, True),
+            ('offlinemac123', 'offline-uuid', NodeRole.node, False, False),
+            ('adoptedmac123', 'adopted-uuid', NodeRole.node, True, True),
+        ):
+            nodeconf.network_map[mac] = Node(
+                uuid=uuid,
+                mac=mac,
+                name=mac,
+                node_role=role,
+                ip='192.168.1.10',
+                adopted=adopted,
+                online=online,
+            )
+        nodeconf.communications_thread = MagicMock()
+        return nodeconf
+
+    def _dispatch(self, nodeconf, modify_action, uuid):
+        """Send one nodelist_modify; return (response, [save/respond in call order])."""
+        order = MagicMock()
+        with patch.object(CuemsNetworkMapType, 'save') as save, \
+             patch('asyncio.run_coroutine_threadsafe'):
+            order.attach_mock(save, 'save')
+            order.attach_mock(nodeconf.communications_thread.respond_to_engine, 'respond')
+            nodeconf.engine_callback(
+                {'action': 'nodelist_modify', 'value': uuid, 'modify_action': modify_action},
+                MagicMock(),
+            )
+        response = nodeconf.communications_thread.respond_to_engine.call_args[0][0]
+        return response, [name for name, _args, _kwargs in order.mock_calls]
+
+    def test_adopting_an_online_node_is_saved_then_answered_ok(self):
+        nodeconf = self._nodeconf()
+        response, calls = self._dispatch(nodeconf, 'ADD', 'online-uuid')
+        assert response == {'OK': True}
+        assert calls == ['save', 'respond']
+        assert nodeconf.network_map['onlinemac1234']['adopted'] is True
+
+    def test_adopting_an_already_adopted_node_is_answered_ok_without_a_write(self):
+        response, calls = self._dispatch(self._nodeconf(), 'ADD', 'adopted-uuid')
+        assert response == {'OK': True}
+        assert calls == ['respond']
+
+    def test_adopting_an_offline_node_is_refused(self):
+        nodeconf = self._nodeconf()
+        response, calls = self._dispatch(nodeconf, 'ADD', 'offline-uuid')
+        assert response == {'OK': False, 'error': 'Cannot adopt node offline-uuid: node is offline'}
+        assert calls == ['respond']
+        assert nodeconf.network_map['offlinemac123']['adopted'] is False
+
+    @pytest.mark.parametrize('modify_action', ['ADD', 'REMOVE'])
+    def test_an_unknown_uuid_is_not_found(self, modify_action):
+        response, calls = self._dispatch(self._nodeconf(), modify_action, 'no-such-uuid')
+        assert response == {'OK': False, 'error': 'Node no-such-uuid not found'}
+        assert calls == ['respond']
+
+    def test_unadopting_a_node_is_saved_then_answered_ok(self):
+        nodeconf = self._nodeconf()
+        response, calls = self._dispatch(nodeconf, 'REMOVE', 'adopted-uuid')
+        assert response == {'OK': True}
+        assert calls == ['save', 'respond']
+        assert nodeconf.network_map['adoptedmac123']['adopted'] is False
+
+    def test_unadopting_an_already_unadopted_node_is_answered_ok_without_a_write(self):
+        response, calls = self._dispatch(self._nodeconf(), 'REMOVE', 'online-uuid')
+        assert response == {'OK': True}
+        assert calls == ['respond']
+
+    def test_unadopting_the_controller_is_refused(self):
+        nodeconf = self._nodeconf()
+        response, calls = self._dispatch(nodeconf, 'REMOVE', 'controller-uuid')
+        assert response == {'OK': False, 'error': 'Cannot unadopt master node'}
+        assert calls == ['respond']
+        assert nodeconf.network_map['controllermac']['adopted'] is True
+
+    def test_an_invalid_modify_action_is_refused(self):
+        response, calls = self._dispatch(self._nodeconf(), 'INVALID', 'online-uuid')
+        assert response == {'OK': False, 'error': 'Invalid modify_action: INVALID'}
+        assert calls == ['respond']

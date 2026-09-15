@@ -1,7 +1,7 @@
 """Regression tests for the Phase-1 nodeconf re-enable changes.
 
 Covers the invariants that were either broken or newly introduced:
-  - write_network_map must NOT mutate the live node_role enum (copy-on-serialize)
+  - writing the map must NOT mutate the live node_role enum (copy-on-serialize)
   - a round-trip must preserve operator fields role_id / alias / hostname
   - CuemsAvahiListener.remove_service must drop the node from the table
   - AliasPublisher.ensure must scope the A record to the given interface index
@@ -21,6 +21,7 @@ def _master_nodeconf(tmp_path):
     nc = CuemsNodeConf()
     nc.map_path = str(tmp_path / 'network_map.xml')
     nc.network_map = NodeIndex()
+    nc.listener = CuemsAvahiListener(ip='169.254.0.1')
     nc.network_map['aabbccddeeff'] = Node(
         uuid='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
         mac='aabbccddeeff',
@@ -38,7 +39,7 @@ def _master_nodeconf(tmp_path):
 
 def test_write_does_not_mutate_live_node_role_enum(tmp_path):
     nc = _master_nodeconf(tmp_path)
-    nc.write_network_map(nc.network_map)
+    nc.refresh_network_map()
     # The live node must still hold the enum, not the serialized string.
     assert nc.network_map['aabbccddeeff']['node_role'] is NodeRole.controller
 
@@ -47,7 +48,7 @@ def test_master_guard_survives_a_write(tmp_path):
     # The enum-mutation bug made this fail on the SECOND attempt: after a write
     # the node_role became a str, so the controller guard stopped matching.
     nc = _master_nodeconf(tmp_path)
-    nc.write_network_map(nc.network_map)
+    nc.refresh_network_map()
     result = nc.unadopt_node('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')
     assert result['OK'] is False
     assert 'master' in result['error'].lower()
@@ -55,7 +56,7 @@ def test_master_guard_survives_a_write(tmp_path):
 
 def test_roundtrip_preserves_role_id_alias_hostname(tmp_path):
     nc = _master_nodeconf(tmp_path)
-    nc.write_network_map(nc.network_map)
+    nc.refresh_network_map()
 
     nc2 = CuemsNodeConf()
     nc2.map_path = nc.map_path

@@ -58,7 +58,7 @@ class TestAdoptionFlow:
             # Verify node was adopted
             assert new_node['adopted'] is True
 
-            # Verify write_network_map was called (through adopt_node)
+            # The map write happens inside adopt_node
             # We can't directly verify this since it's called inside adopt_node,
             # but we can verify the node state changed
 
@@ -120,7 +120,7 @@ class TestAdoptionFlow:
         nodeconf.network_map['testmac123456'] = node
 
         # Adopt the node
-        with patch.object(nodeconf, 'write_network_map'):
+        with patch.object(CuemsNetworkMapType, 'save'):
             result = nodeconf.adopt_node('test-uuid-123')
 
             assert result['OK'] is True
@@ -152,14 +152,14 @@ class TestAdoptionFlow:
         )
         nodeconf.network_map['testmac123456'] = node
 
-        # Adopt the node and verify write_network_map is called
-        with patch.object(nodeconf, 'write_network_map') as mock_write:
+        # Adopt the node and verify the map is written
+        with patch.object(CuemsNetworkMapType, 'save') as mock_write:
             result = nodeconf.adopt_node('test-uuid-123')
 
             assert result['OK'] is True
             assert mock_write.called
-            # Verify it was called with the network_map
-            mock_write.assert_called_once_with(nodeconf.network_map)
+            # Verify it wrote to this daemon's map path
+            mock_write.assert_called_once_with(nodeconf.map_path)
 
     def test_adoption_multiple_nodes_only_adopts_target(self, tmp_path):
         """Test that adopting one node doesn't affect others."""
@@ -190,7 +190,7 @@ class TestAdoptionFlow:
         nodeconf.network_map['node2mac123'] = node2
 
         # Adopt only node1
-        with patch.object(nodeconf, 'write_network_map'):
+        with patch.object(CuemsNetworkMapType, 'save'):
             result = nodeconf.adopt_node('node1-uuid')
 
             assert result['OK'] is True
@@ -226,7 +226,7 @@ class TestAdoptionFlow:
         assert nodeconf.network_map['discoveredmac']['adopted'] is False
 
         # Now adopt the node
-        with patch.object(nodeconf, 'write_network_map'):
+        with patch.object(CuemsNetworkMapType, 'save'):
             result = nodeconf.adopt_node('discovered-uuid')
 
             assert result['OK'] is True

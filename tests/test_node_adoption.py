@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import patch
 from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
+from cuemsutils.config.network_map import CuemsNetworkMapType
 
 
 class TestNodeAdoption:
@@ -28,7 +29,7 @@ class TestNodeAdoption:
         )
         nodeconf.network_map['testmac123456'] = node
 
-        with patch.object(nodeconf, 'write_network_map'):
+        with patch.object(CuemsNetworkMapType, 'save'):
             result = nodeconf.adopt_node('test-uuid-123')
 
             assert result['OK'] is True
@@ -64,7 +65,7 @@ class TestNodeAdoption:
         nodeconf.network_map['testmac123456'] = node
 
         # Try to adopt again - should return success but not write network map
-        with patch.object(nodeconf, 'write_network_map') as mock_write:
+        with patch.object(CuemsNetworkMapType, 'save') as mock_write:
             result = nodeconf.adopt_node('test-uuid-123')
 
             assert result['OK'] is True
@@ -94,7 +95,7 @@ class TestNodeAdoption:
         nodeconf.network_map['testmac123456'] = node
 
         # Try to adopt - should fail
-        with patch.object(nodeconf, 'write_network_map') as mock_write:
+        with patch.object(CuemsNetworkMapType, 'save') as mock_write:
             result = nodeconf.adopt_node('test-uuid-123')
 
             assert result['OK'] is False
@@ -123,7 +124,7 @@ class TestNodeAdoption:
         )
         nodeconf.network_map['testmac123456'] = node
 
-        with patch.object(nodeconf, 'write_network_map'):
+        with patch.object(CuemsNetworkMapType, 'save'):
             result = nodeconf.unadopt_node('test-uuid-123')
 
             assert result['OK'] is True
@@ -148,7 +149,7 @@ class TestNodeAdoption:
         nodeconf.network_map['testmac123456'] = node
 
         # Try to unadopt again - should return success but not write network map
-        with patch.object(nodeconf, 'write_network_map') as mock_write:
+        with patch.object(CuemsNetworkMapType, 'save') as mock_write:
             result = nodeconf.unadopt_node('test-uuid-123')
 
             assert result['OK'] is True
@@ -178,7 +179,7 @@ class TestNodeAdoption:
         nodeconf.network_map['testmac123456'] = node
 
         # Try to unadopt - should succeed (offline nodes can be unadopted)
-        with patch.object(nodeconf, 'write_network_map') as mock_write:
+        with patch.object(CuemsNetworkMapType, 'save') as mock_write:
             result = nodeconf.unadopt_node('test-uuid-123')
 
             assert result['OK'] is True
@@ -224,7 +225,7 @@ class TestNodeAdoption:
 
     def test_adopt_node_writes_a_schema_valid_map_end_to_end(self, tmp_path):
         """T068 (SC-008): adoption's write path is exercised for real — no
-        mocking ``write_network_map`` — and the result round-trips through
+        mocking the map save — and the result round-trips through
         ``read_network_map``, which fails loudly (``SchemaError``) if the
         written document does not validate against ``network_map.xsd``.
         """

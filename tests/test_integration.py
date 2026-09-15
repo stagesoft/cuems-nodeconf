@@ -39,7 +39,6 @@ class TestIntegrationScenarios:
         with patch('shutil.copy2'), \
              patch.object(nodeconf, 'change_network_to_master', return_value=True), \
              patch.object(nodeconf, 'get_ips'), \
-             patch.object(nodeconf, 'write_network_map'), \
              patch.object(nodeconf, 'update_master_lock_file'), \
              patch.object(nodeconf, 'notify_systemd'):
 
@@ -104,7 +103,7 @@ class TestIntegrationScenarios:
             nodeconf.refresh_network_map()
 
         # Adopt the node
-        with patch.object(nodeconf, 'write_network_map'):
+        with patch.object(CuemsNetworkMapType, 'save'):
             result = nodeconf.adopt_node('discovered-uuid')
 
             assert result['OK'] is True
@@ -391,7 +390,7 @@ class TestIntegrationScenarios:
             nodeconf.refresh_network_map()
 
         # Adopt nodes one by one
-        with patch.object(nodeconf, 'write_network_map'):
+        with patch.object(CuemsNetworkMapType, 'save'):
             result1 = nodeconf.adopt_node('node1-uuid')
             assert result1['OK'] is True
             assert nodeconf.network_map['slave1mac123']['adopted'] is True

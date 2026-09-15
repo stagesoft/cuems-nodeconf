@@ -96,8 +96,8 @@ the controller, with the persistence check.
 ### Tests
 
 - [X] T022 [P] [US1] Update `tests/test_network_map.py` — remove tests of the deleted methods, and add one asserting the write-only-on-change invariant (constitution II): a second `refresh` with identical discovery returns `False` and leaves the file's mtime untouched. This behaviour moves *inside* `refresh` during the swap, which is exactly when it could be lost without anything failing
-- [ ] T023 [P] [US1] Update `tests/test_node_adoption.py` and `tests/test_adoption_flow.py` for the new adopt/unadopt internals, asserting the response shape and all three error strings
-- [ ] T024 [P] [US1] Update `tests/test_engine_callback.py` to assert the full outcome table in `contracts/engine-rpc.md`, including that a successful adopt **persisted** before the response was produced
+- [X] T023 [P] [US1] Update `tests/test_node_adoption.py` and `tests/test_adoption_flow.py` for the new adopt/unadopt internals, asserting the response shape and all three error strings
+- [X] T024 [P] [US1] Update `tests/test_engine_callback.py` to assert the full outcome table in `contracts/engine-rpc.md`, including that a successful adopt **persisted** before the response was produced
 - [X] T025 [P] [US1] Update `tests/test_missing_nodes.py` for the explicit `missing_adopted` call
 - [ ] T026 [US1] Run `.venv/bin/python -m pytest specs/planning/yardstick/ -q` — must be 15 passed, **unchanged**. If it fails, the port is wrong; do not edit the yardstick (SC-001)
 - [ ] T027 [US1] Run `.venv/bin/python -m pytest -q` — all pass, nothing skipped (SC-005)
