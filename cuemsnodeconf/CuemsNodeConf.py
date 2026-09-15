@@ -451,29 +451,15 @@ class CuemsNodeConf():
                 Logger.exception(e)
                 raise
         
-    def write_network_map(self, map=None):
-        if not map:
-            map = self.network_map if hasattr(self, 'network_map') and self.network_map else self.listener.nodes
+    def _save_network_map(self):
+        """Write self.network_map now; a write that fails is owed to the next refresh.
 
-        required_fields = ['uuid', 'mac', 'name', 'node_role', 'ip']
-        for mac, node in map.items():
-            for field in required_fields:
-                if node.get(field) is None:
-                    Logger.error(f"Node {mac} has None value for required field '{field}'. Node data: {dict(node)}")
-                    self._map_write_pending = True
-                    raise ValueError(f"Cannot write network map: Node {mac} has None value for required field '{field}'")
-
-        # feature 007 (T076): CuemsNetworkMapType.save() validates (T1) then
-        # writes atomically (documents.build_tree / iter_schema_errors /
-        # write_tree — a temp file in the same directory, then os.replace) and
-        # does not mutate the object it is given (contract C5, FR-015). The
-        # hand-rolled atomic write and the separate serialization copy this
-        # replaced existed only to work around a mutation bug in the old
-        # builder (converting node_type -> str in place broke later enum
-        # comparisons) — that workaround has nothing left to work around.
-        netmap = CuemsNetworkMapType(node_list=[{"node": n} for n in map.values()])
+        CuemsNetworkMapType.save validates against network_map.xsd before
+        writing atomically, so the old pre-save required-field check is gone:
+        the schema already rejects the same documents (FR-008).
+        """
         try:
-            netmap.save(self.map_path)
+            self._network_map_document().save(self.map_path)
         except SchemaError as e:
             self._map_write_pending = True
             Logger.error(f"Network map failed validation: {e}")
@@ -484,51 +470,53 @@ class CuemsNodeConf():
         self._map_write_pending = False
         Logger.debug("Network map written to XML (atomic)")
 
+    def _find_node(self, node_uuid):
+        return next((n for n in self.network_map.values() if n.get('uuid') == node_uuid), None)
+
     def adopt_node(self, node_uuid):
-        for node in self.network_map.values():
-            if node.get('uuid') == node_uuid:
-                # Check if node is already adopted
-                if node.get('adopted'):
-                    Logger.debug(f'Node {node_uuid} is already adopted')
-                    return {'OK': True, 'message': 'Node already adopted'}
+        """Adopt through NodeIndex.adopt, shaping the RPC answer engine_callback sends.
 
-                # Check if node is online
-                if not node.get('online'):
-                    Logger.warning(f'Cannot adopt node {node_uuid}: node is offline')
-                    return {'OK': False, 'error': f'Cannot adopt node {node_uuid}: node is offline'}
-
-                node['adopted'] = True
-                self.write_network_map(self.network_map)
-                Logger.info(f'Node {node_uuid} adopted')
-                return {'OK': True}
-
-        Logger.warning(f'Node {node_uuid} not found in network_map')
-        return {'OK': False, 'error': f'Node {node_uuid} not found'}
+        NodeIndex.adopt returns a bare bool and does not persist (feature 001,
+        FR-003/FR-010). So: a False is two-way ambiguous — absent or offline —
+        and is told apart by looking the uuid up; "already adopted" is detected
+        by the signature not moving, not by re-coding the adoption rule; and a
+        real change is saved BEFORE the answer, as it always was.
+        """
+        before = self.network_map.signature()
+        if not self.network_map.adopt(node_uuid):
+            if self._find_node(node_uuid) is None:
+                Logger.warning(f'Node {node_uuid} not found in network_map')
+                return {'OK': False, 'error': f'Node {node_uuid} not found'}
+            Logger.warning(f'Cannot adopt node {node_uuid}: node is offline')
+            return {'OK': False, 'error': f'Cannot adopt node {node_uuid}: node is offline'}
+        if self.network_map.signature() == before:
+            Logger.debug(f'Node {node_uuid} is already adopted')
+            return {'OK': True, 'message': 'Node already adopted'}
+        self._save_network_map()
+        Logger.info(f'Node {node_uuid} adopted')
+        return {'OK': True}
 
     def unadopt_node(self, node_uuid):
-        for node in self.network_map.values():
-            if node.get('uuid') == node_uuid:
-                if node.get('node_role') == NodeRole.controller:
-                    Logger.warning(f'Cannot unadopt master node {node_uuid}')
-                    return {'OK': False, 'error': 'Cannot unadopt master node'}
+        """Unadopt through NodeIndex.unadopt; see adopt_node for the shape.
 
-                # Check if node is already unadopted
-                if not node.get('adopted'):
-                    Logger.debug(f'Node {node_uuid} is already unadopted')
-                    return {'OK': True, 'message': 'Node already unadopted'}
-
-                # Note: Offline nodes can and should be unadoptable
-                # This allows cleaning up nodes that have gone offline
-                if not node.get('online'):
-                    Logger.info(f'Unadopting offline node {node_uuid} (node is not online)')
-
-                node['adopted'] = False
-                self.write_network_map(self.network_map)
-                Logger.info(f'Node {node_uuid} unadopted')
-                return {'OK': True}
-
-        Logger.warning(f'Node {node_uuid} not found in network_map')
-        return {'OK': False, 'error': f'Node {node_uuid} not found'}
+        Here the ambiguous False means absent or the controller. Offline nodes
+        can and should be unadoptable, so stale entries can be cleaned up.
+        """
+        before = self.network_map.signature()
+        if not self.network_map.unadopt(node_uuid):
+            if self._find_node(node_uuid) is None:
+                Logger.warning(f'Node {node_uuid} not found in network_map')
+                return {'OK': False, 'error': f'Node {node_uuid} not found'}
+            Logger.warning(f'Cannot unadopt master node {node_uuid}')
+            return {'OK': False, 'error': 'Cannot unadopt master node'}
+        if self.network_map.signature() == before:
+            Logger.debug(f'Node {node_uuid} is already unadopted')
+            return {'OK': True, 'message': 'Node already unadopted'}
+        if not self._find_node(node_uuid).get('online'):
+            Logger.info(f'Unadopting offline node {node_uuid} (node is not online)')
+        self._save_network_map()
+        Logger.info(f'Node {node_uuid} unadopted')
+        return {'OK': True}
 
     def read_network_map(self):
         # feature 007 (T075): both legacy node_type spellings are gone after

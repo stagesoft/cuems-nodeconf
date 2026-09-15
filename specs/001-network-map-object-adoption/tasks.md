@@ -79,15 +79,15 @@ the controller, with the persistence check.
 - [X] T012 [US1] Replace `refresh_network_map`'s four-step body (`:247`) with a single `self.network_map.refresh(self.listener.nodes, self.map_path)` call, keeping its existing `PermissionError` and general exception handling around it (FR-002, FR-006)
 - [X] T013 [US1] Add an explicit `missing_adopted(self.listener.nodes)` call in `refresh_network_map` on a derived index, re-emitting today's `Missing adopted nodes: [...]` warning and its `All adopted nodes are present` debug counterpart (FR-007)
 - [X] T014 [US1] Delete `_map_signature` (`:299`), `merge_discovered_nodes` (`:458`), `set_master_always_adopted` (`:508`) and `check_missing_adopted_nodes` (`:537`) from `cuemsnodeconf/CuemsNodeConf.py` (FR-001, FR-004)
-- [ ] T015 [US1] Delete `write_network_map` (`:431`) from `cuemsnodeconf/CuemsNodeConf.py`, including its `required_fields` pre-check — an artifact the schema already enforces on the same write (FR-008)
+- [X] T015 [US1] Delete `write_network_map` (`:431`) from `cuemsnodeconf/CuemsNodeConf.py`, including its `required_fields` pre-check — an artifact the schema already enforces on the same write (FR-008)
 - [X] T016 [US1] Delete `self._last_map_sig` from `__init__` (`:57`) — `refresh` owns the write decision now and compares the signature itself
 
 ### Adopt and unadopt
 
-- [ ] T017 [US1] Rewrite `adopt_node` (`:552`) in `cuemsnodeconf/CuemsNodeConf.py` to derive an index, call `NodeIndex.adopt(node_uuid)`, and **on success write back and save** (research D-D) (FR-003)
-- [ ] T018 [US1] Rewrite `unadopt_node` (`:573`) the same way against `NodeIndex.unadopt(node_uuid)`, preserving today's "unadopting offline node" info log (FR-003)
-- [ ] T019 [US1] Implement the failure discrimination in both: on `False`, look the uuid up in the derived index and select `Node {uuid} not found` (absent), `Cannot adopt node {uuid}: node is offline` (present and offline) or `Cannot unadopt master node` (present and controller), per `contracts/engine-rpc.md` (FR-010)
-- [ ] T020 [US1] Verify `engine_callback` (`:113-161`) still forwards only `OK` and `error`, still answers the unknown-action branch and still answers from its exception handler — no change expected, but FR-009 and FR-011 make it a checked invariant rather than an assumption
+- [X] T017 [US1] Rewrite `adopt_node` (`:552`) in `cuemsnodeconf/CuemsNodeConf.py` to derive an index, call `NodeIndex.adopt(node_uuid)`, and **on success write back and save** (research D-D) (FR-003)
+- [X] T018 [US1] Rewrite `unadopt_node` (`:573`) the same way against `NodeIndex.unadopt(node_uuid)`, preserving today's "unadopting offline node" info log (FR-003)
+- [X] T019 [US1] Implement the failure discrimination in both: on `False`, look the uuid up in the derived index and select `Node {uuid} not found` (absent), `Cannot adopt node {uuid}: node is offline` (present and offline) or `Cannot unadopt master node` (present and controller), per `contracts/engine-rpc.md` (FR-010)
+- [X] T020 [US1] Verify `engine_callback` (`:113-161`) still forwards only `OK` and `error`, still answers the unknown-action branch and still answers from its exception handler — no change expected, but FR-009 and FR-011 make it a checked invariant rather than an assumption
 
 ### The dead method
 
@@ -99,8 +99,8 @@ the controller, with the persistence check.
 - [X] T023 [P] [US1] Update `tests/test_node_adoption.py` and `tests/test_adoption_flow.py` for the new adopt/unadopt internals, asserting the response shape and all three error strings
 - [X] T024 [P] [US1] Update `tests/test_engine_callback.py` to assert the full outcome table in `contracts/engine-rpc.md`, including that a successful adopt **persisted** before the response was produced
 - [X] T025 [P] [US1] Update `tests/test_missing_nodes.py` for the explicit `missing_adopted` call
-- [ ] T026 [US1] Run `.venv/bin/python -m pytest specs/planning/yardstick/ -q` — must be 15 passed, **unchanged**. If it fails, the port is wrong; do not edit the yardstick (SC-001)
-- [ ] T027 [US1] Run `.venv/bin/python -m pytest -q` — all pass, nothing skipped (SC-005)
+- [X] T026 [US1] Run `.venv/bin/python -m pytest specs/planning/yardstick/ -q` — must be 15 passed, **unchanged**. If it fails, the port is wrong; do not edit the yardstick (SC-001)
+- [X] T027 [US1] Run `.venv/bin/python -m pytest -q` — all pass, nothing skipped (SC-005)
 - [ ] T028 [US1] Confirm SC-002 by grep: none of the nine replaced method definitions remain except `refresh_network_map` as a thin caller
 
 **Checkpoint**: User Story 1 is complete and mergeable on its own. `quickstart.md` §3 can now be walked on the controller.
