@@ -19,7 +19,7 @@ from .CuemsAvahiListener import CuemsAvahiListener
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole
 from cuemsutils.tools.NodeList import node as Node
 from cuemsutils.config.network_map import CuemsNetworkMapType
-from cuemsutils.xml.settings import NetworkMap as _NetworkMapReader
+from cuemsutils.tools.ConfigManager import ConfigManager
 from cuemsutils.errors import SchemaError
 
 from cuemsutils.tools.TimeoutLoop import TimeoutLoop
@@ -523,8 +523,25 @@ class CuemsNodeConf():
         # the postinst conversion (cuems-common M3) — network_map's own
         # adapter table now decodes node_role straight to NodeRole (R1), so
         # there is nothing left to normalise here.
-        reader = _NetworkMapReader(self.map_path)
-        self.network_map = self._index_from_document(reader.get_dict())
+        # Through the public config object (FR-013). ConfigManager needs
+        # settings.xml beside the map; every node has both, provisioned by
+        # nodeconf's cuems-utils and cuems-common dependencies.
+        manager = ConfigManager(config_dir=os.path.dirname(self.map_path), load_all=False)
+        try:
+            manager.load_network_map()
+        except ValueError:
+            # load_network_map ends by resolving THIS node's own entry, and
+            # raises when the map does not list it yet -- which is every freshly
+            # provisioned node: cuems-config-node gives settings.xml a new uuid
+            # and leaves the map alone. nodeconf is what writes this node into
+            # the map (the engine cannot start until it has), so it must read
+            # such a map. By then the map is loaded and validated; a broken
+            # document raises SchemaError, which is not a ValueError. If the map
+            # was not populated, this was something else: let it propagate.
+            if not hasattr(manager, 'network_map'):
+                raise
+            Logger.info('This node is not in network_map.xml yet; discovery will add it')
+        self.network_map = self._index_from_document(manager.network_map)
 
         Logger.debug("---")
         Logger.debug("Nodes read from existing XML network map:")

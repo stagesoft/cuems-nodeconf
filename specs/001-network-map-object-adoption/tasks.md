@@ -44,10 +44,10 @@ story. Settle it once, first, so the three stories do not collide in it.
 
 **⚠️ CRITICAL**: no user story work begins until this phase is complete.
 
-- [ ] T004 🚧 **HELD — decision pending (research D-G, revised).** Replace `from cuemsutils.xml.settings import NetworkMap as _NetworkMapReader` with a public read path in `cuemsnodeconf/CuemsNodeConf.py`. The planned `ConfigManager` requires `/etc/cuems/settings.xml` at construction — which no package ships — and schema-validates it, coupling topology discovery to an unrelated config file (FR-013)
+- [X] T004 Replace `from cuemsutils.xml.settings import NetworkMap as _NetworkMapReader` with `from cuemsutils.tools.ConfigManager import ConfigManager` in `cuemsnodeconf/CuemsNodeConf.py`. `ConfigManager` requires `settings.xml`, which every node has: nodeconf never runs standalone, and its `cuems-utils`/`cuems-common` dependencies provision `/etc/cuems/settings.xml` (maintainer-confirmed 2026-09-15; research D-G) (FR-013)
 - [X] T005 Delete `from cuemsutils.xml.mapper import Mapper, read_config_document` from `cuemsnodeconf/CuemsNodeConf.py:22` outright — measured to have no call site beyond the import line (FR-013)
 - [X] T006 Replace `from cuemsutils.timeoutloop import Timeoutloop` with `from cuemsutils.tools.TimeoutLoop import TimeoutLoop` in `cuemsnodeconf/CuemsNodeConf.py:26` and update all three call sites (`:327`, `:653`, `:665` — re-measured; the plan's `:635`/`:647` were stale) (FR-014)
-- [ ] T007 Confirm SC-008's **two** halves: no `cuemsutils.xml` / `cuemsutils.timeoutloop` import remains in `cuemsnodeconf/*.py`, **and** `.venv/bin/python -m pytest -q 2>&1 | grep -i deprecat` is empty. **Deprecation half done** (9 warnings → 0); the import half waits on T004
+- [X] T007 Confirm SC-008's **two** halves: no `cuemsutils.xml` / `cuemsutils.timeoutloop` import remains in `cuemsnodeconf/*.py`, **and** `.venv/bin/python -m pytest -q 2>&1 | grep -i deprecat` is empty
 
 **Checkpoint**: imports are on public, current paths; the file compiles; the suite still passes.
 
@@ -70,7 +70,7 @@ the controller, with the persistence check.
 ### State ownership (research D-A — do this before anything that uses the map)
 
 - [X] T008 [US1] Keep `self.network_map` as the `NodeIndex` working set in `cuemsnodeconf/CuemsNodeConf.py` — revised from "make it a `CuemsNetworkMapType`", which would break row 4's `_should_resume_master` lookup by MAC (research D-A, revised) (FR-005)
-- [ ] T009 [US1] 🚧 **HELD with T004.** `read_network_map` in `cuemsnodeconf/CuemsNodeConf.py` already builds its index through `_index_from_document`; only its loader line changes once the public read path is decided (FR-005)
+- [X] T009 [US1] Rewrite `read_network_map` in `cuemsnodeconf/CuemsNodeConf.py` to load through `ConfigManager(config_dir=<the map's directory>, load_all=False).load_network_map()` and build the index from `.network_map` via `_index_from_document`, catching only the lookup of this node's own entry — which raises on every freshly provisioned node, whose map does not list it yet (research D-G); tests provision `/etc/cuems` through the `cuems_conf_dir` fixture (FR-005)
 - [X] T010 [US1] Add `_network_map_document()` in `cuemsnodeconf/CuemsNodeConf.py`, building a `CuemsNetworkMapType` from the index for every refresh and save (FR-005)
 - [X] T011 [US1] Add `_index_from_document()` reading a document's `node_list` back into an index without copying nodes, and `_save_network_map()` persisting the index and owing a failed write to the next refresh, in `cuemsnodeconf/CuemsNodeConf.py` (FR-005)
 

@@ -9,11 +9,16 @@ in-memory index, and that the map on disk is written only when something
 changed — and written again after a write that failed.
 """
 import os
+import re
+import uuid
+
+import pytest
 from unittest.mock import patch
 
 from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
 from cuemsnodeconf.CuemsAvahiListener import CuemsAvahiListener
 from cuemsutils.config.network_map import CuemsNetworkMapType
+from cuemsutils.errors import ValidationError
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
 
 
@@ -186,3 +191,51 @@ class TestReadNetworkMap:
         assert absent['node_role'] is NodeRole.node
         assert absent['adopted'] is False
         assert absent['online'] is False
+
+    def test_reads_a_map_that_does_not_list_this_node_yet(self, cuems_conf_dir):
+        """A freshly provisioned node: its map does not contain it yet.
+
+        `cuems-config-node write` gives settings.xml a new uuid and leaves
+        network_map.xml alone, so on first boot the map lists other nodes (the
+        default cuems-common ships lists one controller) but not this one.
+        nodeconf is the service that writes this node into the map — the engine
+        cannot start until it has — so reading such a map must succeed.
+        """
+        settings = cuems_conf_dir / 'settings.xml'
+        settings.write_text(re.sub(
+            r'<uuid>[^<]*</uuid>', f'<uuid>{uuid.uuid1()}</uuid>', settings.read_text()
+        ))
+        nodeconf = CuemsNodeConf()
+        nodeconf.map_path = str(cuems_conf_dir / 'network_map.xml')
+
+        nodeconf.read_network_map()
+
+        assert set(nodeconf.network_map) == {'2cf05d21cca3', '0800276db133'}
+
+    def test_without_settings_xml_the_read_fails_loudly(self, cuems_conf_dir):
+        """ConfigManager requires settings.xml, and every node has one.
+
+        If a node ever does not, boot must fail visibly. Falling back to an
+        empty map instead would be worse than crashing: the next refresh owes a
+        write, and would persist a map holding only what discovery saw — dropping
+        every adopted-but-absent node's identity record.
+        """
+        (cuems_conf_dir / 'settings.xml').unlink()
+        nodeconf = CuemsNodeConf()
+        nodeconf.map_path = str(cuems_conf_dir / 'network_map.xml')
+
+        with pytest.raises(FileNotFoundError):
+            nodeconf.read_network_map()
+
+    def test_a_map_that_fails_validation_still_fails_loudly(self, cuems_conf_dir):
+        """The fresh-node catch is narrow: it tolerates this node being absent
+        from a valid map, never a map that is itself broken."""
+        network_map = cuems_conf_dir / 'network_map.xml'
+        text = network_map.read_text()
+        assert text.count('<node_role>node</node_role>') == 1
+        network_map.write_text(text.replace('<node_role>node</node_role>', '<node_role>bogus</node_role>'))
+        nodeconf = CuemsNodeConf()
+        nodeconf.map_path = str(network_map)
+
+        with pytest.raises(ValidationError):
+            nodeconf.read_network_map()
