@@ -54,8 +54,8 @@ def test_master_guard_survives_a_write(tmp_path):
     assert 'master' in result['error'].lower()
 
 
-def test_roundtrip_preserves_role_id_alias_hostname(tmp_path):
-    nc = _master_nodeconf(tmp_path)
+def test_roundtrip_preserves_role_id_alias_hostname(cuems_conf_dir):
+    nc = _master_nodeconf(cuems_conf_dir)
     nc.refresh_network_map()
 
     nc2 = CuemsNodeConf()

@@ -109,6 +109,21 @@ The `conftest.py` file provides:
   - Provides `bridge0:avahi` (169.254.1.1)
   - Provides `ethernet1:avahi` (169.254.2.1)
   - Provides `bond0` (192.168.1.100)
+- **`cuems_conf_dir`** - A private `/etc/cuems` for one test, provisioned the way every
+  node is. Copies `fixtures/etc_cuems/settings.xml` and `fixtures/etc_cuems/network_map.xml`
+  into `tmp_path` and points `CUEMS_CONF_PATH` at it. Request it in any test that reaches
+  `ConfigManager` — `read_network_map` does, and `ConfigManager` requires `settings.xml`.
+  It returns `tmp_path`; a test that needs a file missing deletes it from there.
+- **Module-level stubs** for `dbus`, `systemd.daemon` and `netifaces`, installed before
+  `CuemsNodeConf` is imported, so the suite runs on a plain dev checkout without the
+  compiled system bindings a packaged node gets from `python3-dbus` / `python3-systemd`.
+
+`fixtures/etc_cuems/settings.xml` must validate against the `settings.xsd` bundled with
+the installed `cuemsutils`. If a schema change invalidates it, refresh it from
+`cuems-utils/tests/data/settings.xml` rather than editing it by hand.
+
+On a real node none of this is needed: `cuems-nodeconf` never runs standalone, and its
+`cuems-utils` / `cuems-common` dependencies provision both files in `/etc/cuems`.
 
 ## Notes
 

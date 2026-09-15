@@ -223,7 +223,7 @@ class TestNodeAdoption:
         assert 'error' in result
         assert 'not found' in result['error']
 
-    def test_adopt_node_writes_a_schema_valid_map_end_to_end(self, tmp_path):
+    def test_adopt_node_writes_a_schema_valid_map_end_to_end(self, cuems_conf_dir):
         """T068 (SC-008): adoption's write path is exercised for real — no
         mocking the map save — and the result round-trips through
         ``read_network_map``, which fails loudly (``SchemaError``) if the
@@ -231,7 +231,7 @@ class TestNodeAdoption:
         """
         nodeconf = CuemsNodeConf()
         nodeconf.network_map = NodeIndex()
-        nodeconf.map_path = str(tmp_path / 'network_map.xml')
+        nodeconf.map_path = str(cuems_conf_dir / 'network_map.xml')
 
         node = Node(
             uuid='12345678-1234-5678-1234-567812345678',

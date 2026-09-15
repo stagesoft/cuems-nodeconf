@@ -167,3 +167,22 @@ class TestRefreshWritesOnlyWhatItMust:
             nodeconf.refresh_network_map()
 
         assert save.call_count == 2
+
+
+class TestReadNetworkMap:
+    """Loading a provisioned map at boot (FR-005)."""
+
+    def test_reads_a_provisioned_map_into_the_index(self, cuems_conf_dir):
+        nodeconf = CuemsNodeConf()
+        nodeconf.map_path = str(cuems_conf_dir / 'network_map.xml')
+
+        nodeconf.read_network_map()
+
+        assert set(nodeconf.network_map) == {'2cf05d21cca3', '0800276db133'}
+        controller = nodeconf.network_map['2cf05d21cca3']
+        assert controller['node_role'] is NodeRole.controller
+        assert controller['adopted'] is True
+        absent = nodeconf.network_map['0800276db133']
+        assert absent['node_role'] is NodeRole.node
+        assert absent['adopted'] is False
+        assert absent['online'] is False

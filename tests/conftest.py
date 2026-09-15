@@ -1,8 +1,10 @@
 """
 Pytest configuration and shared fixtures for cuems-nodeconf tests.
 """
+import shutil
 import sys
 import types
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -140,3 +142,22 @@ def mock_netifaces(monkeypatch):
 
     yield MockNetifaces()
 
+
+CUEMS_CONF_FIXTURES = Path(__file__).parent / 'fixtures' / 'etc_cuems'
+
+
+@pytest.fixture
+def cuems_conf_dir(tmp_path, monkeypatch):
+    """A private /etc/cuems for one test, provisioned the way every node is.
+
+    cuems-nodeconf never runs standalone: on a node, its cuems-utils and
+    cuems-common dependencies guarantee /etc/cuems holds settings.xml and
+    network_map.xml, and read_network_map loads the map through ConfigManager,
+    which requires settings.xml. This copies both fixtures into tmp_path and
+    points CUEMS_CONF_PATH at it, so nothing in the test reaches the real
+    /etc/cuems. Returns tmp_path; a test that needs a file missing deletes it.
+    """
+    for name in ('settings.xml', 'network_map.xml'):
+        shutil.copy(CUEMS_CONF_FIXTURES / name, tmp_path / name)
+    monkeypatch.setenv('CUEMS_CONF_PATH', str(tmp_path))
+    return tmp_path
