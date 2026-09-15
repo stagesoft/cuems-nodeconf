@@ -91,7 +91,7 @@ the controller, with the persistence check.
 
 ### The dead method
 
-- [ ] T021 [US1] Delete `cleanup` (`:615`) from `cuemsnodeconf/CuemsNodeConf.py` — it has no callers, and repairing it would make `/etc/cuems/settings.xml` a construction-time requirement of the daemon (research D-C) (FR-012)
+- [X] T021 [US1] Delete `cleanup` (`:615`) from `cuemsnodeconf/CuemsNodeConf.py` — it has no callers, and repairing it would make `/etc/cuems/settings.xml` a construction-time requirement of the daemon (research D-C) (FR-012)
 
 ### Tests
 

@@ -611,12 +611,6 @@ class CuemsNodeConf():
             Logger.debug(f"{value}")
         Logger.debug("---")
 
-    def cleanup(self):
-        try:
-            os.remove(os.path.join(CUEMS_CONF_PATH, self.cm.show_lock_file))
-        except FileNotFoundError:
-            pass
-
     def callback(self, caller_node=None, action=CuemsAvahiListener.Action.ADD):
         Logger.debug(f" {action} callback!!!, Node: {caller_node} ")
 
