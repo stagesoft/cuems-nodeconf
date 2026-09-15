@@ -68,3 +68,23 @@ The clarification the flow document expected to force — what the RPC returns i
 the three failure cases once the error strings are gone from the callee — is already
 answered by FR-010 and User Story 1's scenarios 2 through 4. `/speckit-clarify` should
 find nothing new there.
+
+## Post-analysis remediation (2026-09-15)
+
+`/speckit-analyze` found eleven issues across spec/plan/tasks, none CRITICAL. All were
+remediated; the checklist above still passes. Two changed requirement text and are worth
+naming here, since a reader of an earlier revision would have acted differently:
+
+- **FR-012 was internally inconsistent with the plan** and the analysis pass did not catch
+  it — the requirement mandated *repairing* `cleanup()` by assigning a collaborator during
+  initialisation, while research D-C had already established that the method has no callers
+  and that repairing it would make `settings.xml` a construction-time requirement of the
+  daemon. FR-012 now requires removal. Found while applying the other fixes.
+- **FR-016 assigned template-file renaming to this repository**, which ships no templates.
+  It now constrains only the *resolution* of template names here, and states its dependency
+  on `cuems-common`'s file rename landing in the same window.
+
+Also: the `cleanup()` edge case was dropped (deleting the method removes the case), the
+deliberate "master" survivals are now recorded as exemptions rather than left to look like
+oversights, and three coverage gaps became tasks (T042 the merge gate, T052 the permissions
+inspection, T053 the scope-boundary check).

@@ -112,9 +112,9 @@ the refusal.
   record is not lost.
 - **The controller's Avahi service is named `controller`, not a MAC.** Merging must key on
   uuid; a name-derived key produces a duplicate node and flips the real one offline.
-- **`cleanup()` is called.** It must not raise before its own exception handling runs.
 - **Only one half of the vocabulary cutover reaches a node.** Must be impossible to install;
-  see User Story 3.
+  see User Story 3. Must also be impossible to *merge* — the package constraint protects a
+  node installing both packages, not a repository that releases from one renamed half.
 
 ---
 
@@ -154,9 +154,11 @@ the refusal.
 
 ### Functional Requirements — correctness debts touched by the same change
 
-- **FR-012**: `cleanup()` MUST NOT raise before its own exception handling runs. Its
-  reference to an attribute that is never assigned MUST be resolved by assigning that
-  collaborator during initialisation — the same place the network-map object is adopted.
+- **FR-012**: The daemon MUST NOT retain a method that raises before its own error handling
+  can run. `cleanup()` is that method, and it has **no callers**; it MUST be removed rather
+  than repaired. Repairing it would make configuration the daemon does not otherwise need a
+  requirement of its *construction*, which trades a dead method for a boot-time failure
+  mode. If a caller ever needs it, it returns with its collaborator resolved lazily.
 - **FR-013**: The daemon MUST reach library functionality only through public paths. The two
   imports from the library's internal XML package MUST go: one is replaced by the public
   config-manager accessor, and the other two names have no call site at all and are deleted
@@ -168,10 +170,13 @@ the refusal.
 
 - **FR-015**: The discovery TXT-record key MUST become `node_role`, carrying
   `controller` / `node` / `firstrun`.
-- **FR-016**: The three Avahi service templates MUST be named for the roles they carry —
-  `cuems.service.{controller,node,firstrun}` — and every place that resolves a template by
-  name MUST follow, including the installer's path construction for both the controller and
-  the inline node case.
+- **FR-016**: Every place **this repository** resolves an Avahi service template by name
+  MUST follow the rename to `cuems.service.{controller,node,firstrun}`, including the
+  installer's path construction for both the controller and the inline node case. The
+  shipped template **files** are renamed in `cuems-common`, not here — this repository
+  ships none (FR-018). So this requirement is on the *resolution*, and it depends on the
+  file rename landing in the same window (FR-019); resolving a renamed name against
+  un-renamed files is a controller that cannot promote itself.
 - **FR-017**: The listener's translation table from the retired vocabulary MUST be retired
   with it. No mapping from the old values may remain.
 - **FR-018**: This repository's three root-level copies of the service templates MUST be
@@ -261,6 +266,14 @@ Settled 2026-09-07 before this spec was written. Recorded so they are not re-lit
 5. **The developer script** that publishes the retired key is updated along with everything
    else. It ships in no package, but a developer script advertising a vocabulary the cluster
    no longer speaks misleads whoever next runs it, so it counts toward SC-004.
+6. **"master" deliberately survives in three places**, as exemptions rather than oversights.
+   The RPC error string `Cannot unadopt master node` is byte-for-byte fixed by the UI
+   contract (FR-010). The master-lock mechanism — `CUEMS_MASTER_LOCK_FILE`,
+   `update_master_lock_file` and `/etc/cuems/master.ip` — is a marker-file mechanism, not the
+   XML field, and `cuems-common` records it as needing its own coordinated migration. And
+   `interfaces.master` is a network-interfaces template, unrelated to discovery. SC-004
+   counts only the retired TXT key, so none of these conflict with it today; they are named
+   so a later master/slave sweep does not mistake them for work this feature missed.
 
 ## Assumptions
 
