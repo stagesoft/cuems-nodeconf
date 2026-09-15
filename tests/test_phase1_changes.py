@@ -127,7 +127,7 @@ def test_alias_publisher_scopes_to_interface_and_is_idempotent(monkeypatch):
 
 def test_merge_discovered_controller_does_not_duplicate(tmp_path):
     # The controller's avahi service is named 'controller', so the listener's
-    # get_mac() derives a garbage key ('controller._'). merge_discovered_nodes
+    # get_mac() derives a garbage key ('controller._'). refresh_network_map
     # must match the existing controller entry by UUID and update it in place —
     # NOT create a duplicate node nor flip the real (mac-keyed) node offline.
     # This pins the corruption a live smoke test surfaced on the controller.
@@ -145,7 +145,7 @@ def test_merge_discovered_controller_does_not_duplicate(tmp_path):
     )
     nc.listener = listener
 
-    nc.merge_discovered_nodes()
+    nc.refresh_network_map()
 
     # Exactly one node, still keyed by the REAL mac.
     assert list(nc.network_map.keys()) == ['aabbccddeeff']

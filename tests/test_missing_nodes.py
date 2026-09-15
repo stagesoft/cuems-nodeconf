@@ -1,66 +1,60 @@
 """
-Tests for checking missing adopted nodes.
+Tests for the missing-adopted-nodes warning.
+
+The warning is not part of CuemsNetworkMapType.refresh's orchestration — the
+library leaves reporting to its caller — so it survives feature 001 only because
+refresh_network_map asks for it explicitly (FR-007). These tests pin that it
+still fires, and only when it should.
 """
-import pytest
 from unittest.mock import patch
+
 from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
-from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
 from cuemsnodeconf.CuemsAvahiListener import CuemsAvahiListener
+from cuemsutils.config.network_map import CuemsNetworkMapType
+from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
+
+
+def _nodeconf_with_adopted(uuid, mac, name):
+    nodeconf = CuemsNodeConf()
+    nodeconf.network_map = NodeIndex()
+    nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
+    nodeconf.network_map[mac] = Node(
+        uuid=uuid,
+        mac=mac,
+        name=name,
+        node_role=NodeRole.node,
+        ip='192.168.1.10',
+        adopted=True,
+    )
+    return nodeconf
 
 
 class TestMissingNodes:
-    """Test checking for missing adopted nodes."""
+    """The warning naming adopted nodes that discovery did not see."""
 
-    def test_check_missing_adopted_nodes_all_present(self):
-        """Test when all adopted nodes are present."""
-        nodeconf = CuemsNodeConf()
-        nodeconf.network_map = NodeIndex()
-        nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
-
-        # Add adopted node to network_map
-        adopted_node = Node(
-            uuid='adopted-uuid',
-            mac='adoptedmac12',
-            name='adopted_node',
-            node_role=NodeRole.node,
-            ip='192.168.1.10',
-            adopted=True,
-        )
-        nodeconf.network_map['adoptedmac12'] = adopted_node
-
-        # Add same node to discovered nodes
-        discovered_node = Node(
+    def test_no_warning_when_every_adopted_node_is_present(self):
+        nodeconf = _nodeconf_with_adopted('adopted-uuid', 'adoptedmac12', 'adopted_node')
+        nodeconf.listener.nodes['adoptedmac12'] = Node(
             uuid='adopted-uuid',
             mac='adoptedmac12',
             name='adopted_node',
             node_role=NodeRole.node,
             ip='192.168.1.10',
         )
-        nodeconf.listener.nodes['adoptedmac12'] = discovered_node
 
-        # Should not raise or log warning
-        nodeconf.check_missing_adopted_nodes()
+        with patch.object(CuemsNetworkMapType, 'save'), \
+             patch('cuemsutils.log.Logger.warning') as mock_warning:
+            nodeconf.refresh_network_map()
 
-    def test_check_missing_adopted_nodes_some_missing(self):
-        """Test when some adopted nodes are missing."""
-        nodeconf = CuemsNodeConf()
-        nodeconf.network_map = NodeIndex()
-        nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
+        mock_warning.assert_not_called()
 
-        # Add adopted node to network_map
-        missing_node = Node(
-            uuid='missing-uuid',
-            mac='missingmac123',
-            name='missing_node',
-            node_role=NodeRole.node,
-            ip='192.168.1.10',
-            adopted=True,
-        )
-        nodeconf.network_map['missingmac123'] = missing_node
+    def test_warns_once_naming_an_adopted_node_that_was_not_discovered(self):
+        nodeconf = _nodeconf_with_adopted('missing-uuid', 'missingmac123', 'missing_node')
+        # Not discovered: the listener saw nothing.
 
-        # Don't add to discovered nodes (node is missing)
+        with patch.object(CuemsNetworkMapType, 'save'), \
+             patch('cuemsutils.log.Logger.warning') as mock_warning:
+            nodeconf.refresh_network_map()
 
-        # Should log warning but not raise
-        with patch('cuemsutils.log.Logger.warning') as mock_warning:
-            nodeconf.check_missing_adopted_nodes()
-            mock_warning.assert_called_once()
+        mock_warning.assert_called_once()
+        assert 'missing_node' in mock_warning.call_args[0][0]

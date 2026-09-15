@@ -1,23 +1,37 @@
 """
-Tests for network map reading, writing, and merging operations.
+Tests for the daemon's refresh path — how discovery reaches the persisted map.
+
+The merge rules themselves (match by uuid, mark the undiscovered offline, keep
+the controller adopted) belong to cuemsutils and are pinned by the vendored
+yardstick in specs/planning/yardstick/. What these tests pin is the daemon's
+side of that seam: that refresh_network_map carries discovery into the
+in-memory index, and that the map on disk is written only when something
+changed — and written again after a write that failed.
 """
-import pytest
+import os
+from unittest.mock import patch
+
 from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
-from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
 from cuemsnodeconf.CuemsAvahiListener import CuemsAvahiListener
+from cuemsutils.config.network_map import CuemsNetworkMapType
+from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
 
 
-class TestNetworkMapOperations:
-    """Test network map reading, writing, and merging."""
+def _nodeconf(map_path=None):
+    nodeconf = CuemsNodeConf()
+    nodeconf.network_map = NodeIndex()
+    nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
+    if map_path is not None:
+        nodeconf.map_path = map_path
+    return nodeconf
 
-    def test_merge_discovered_nodes_new_node(self):
-        """Test merging when a new node is discovered."""
-        nodeconf = CuemsNodeConf()
-        nodeconf.network_map = NodeIndex()
-        nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
 
-        # Add a discovered node
-        discovered_node = Node(
+class TestRefreshCarriesDiscoveryIntoTheMap:
+    """Discovery reaches self.network_map through refresh_network_map."""
+
+    def test_a_newly_discovered_node_joins_unadopted_and_online(self):
+        nodeconf = _nodeconf()
+        nodeconf.listener.nodes['newmac123456'] = Node(
             uuid='new-uuid',
             mac='newmac123456',
             name='new_node',
@@ -25,22 +39,17 @@ class TestNetworkMapOperations:
             ip='192.168.1.10',
             online=True,
         )
-        nodeconf.listener.nodes['newmac123456'] = discovered_node
 
-        nodeconf.merge_discovered_nodes()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         assert 'newmac123456' in nodeconf.network_map
         assert nodeconf.network_map['newmac123456']['adopted'] is False
         assert nodeconf.network_map['newmac123456']['online'] is True
 
-    def test_merge_discovered_nodes_existing_node(self):
-        """Test merging when an existing node is rediscovered."""
-        nodeconf = CuemsNodeConf()
-        nodeconf.network_map = NodeIndex()
-        nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
-
-        # Add existing node to network_map
-        existing_node = Node(
+    def test_a_rediscovered_node_keeps_its_adoption_and_takes_fresh_discovery_fields(self):
+        nodeconf = _nodeconf()
+        nodeconf.network_map['existingmac12'] = Node(
             uuid='existing-uuid',
             mac='existingmac12',
             name='existing_node',
@@ -49,10 +58,7 @@ class TestNetworkMapOperations:
             adopted=True,
             online=False,
         )
-        nodeconf.network_map['existingmac12'] = existing_node
-
-        # Rediscover the node
-        rediscovered_node = Node(
+        nodeconf.listener.nodes['existingmac12'] = Node(
             uuid='existing-uuid',
             mac='existingmac12',
             name='existing_node',
@@ -60,25 +66,17 @@ class TestNetworkMapOperations:
             ip='192.168.1.11',  # IP changed
             online=True,
         )
-        nodeconf.listener.nodes['existingmac12'] = rediscovered_node
 
-        nodeconf.merge_discovered_nodes()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
-        # Adopted status should be preserved
         assert nodeconf.network_map['existingmac12']['adopted'] is True
-        # Online status should be updated
         assert nodeconf.network_map['existingmac12']['online'] is True
-        # IP should be updated
         assert nodeconf.network_map['existingmac12']['ip'] == '192.168.1.11'
 
-    def test_merge_discovered_nodes_offline(self):
-        """Test that nodes not discovered are marked offline."""
-        nodeconf = CuemsNodeConf()
-        nodeconf.network_map = NodeIndex()
-        nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
-
-        # Add node to network_map but not to discovered nodes
-        offline_node = Node(
+    def test_an_undiscovered_node_is_marked_offline(self):
+        nodeconf = _nodeconf()
+        nodeconf.network_map['offlinemac123'] = Node(
             uuid='offline-uuid',
             mac='offlinemac123',
             name='offline_node',
@@ -86,39 +84,86 @@ class TestNetworkMapOperations:
             ip='192.168.1.10',
             online=True,
         )
-        nodeconf.network_map['offlinemac123'] = offline_node
 
-        nodeconf.merge_discovered_nodes()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         assert nodeconf.network_map['offlinemac123']['online'] is False
 
-    def test_set_master_always_adopted(self):
-        """Test that controller nodes are always marked as adopted."""
-        nodeconf = CuemsNodeConf()
-        nodeconf.network_map = NodeIndex()
+    def test_the_controller_stays_adopted_and_nothing_else_is_adopted_for_it(self):
+        nodeconf = _nodeconf()
+        for mac, uuid, role, ip in (
+            ('mastermac123', 'controller-uuid', NodeRole.controller, '192.168.1.1'),
+            ('slavemac1234', 'node-uuid', NodeRole.node, '192.168.1.2'),
+        ):
+            nodeconf.network_map[mac] = Node(
+                uuid=uuid, mac=mac, name=mac, node_role=role, ip=ip, adopted=False,
+            )
+            nodeconf.listener.nodes[mac] = Node(
+                uuid=uuid, mac=mac, name=mac, node_role=role, ip=ip, online=True,
+            )
 
-        # Add controller and node nodes
-        controller_node = Node(
-            uuid='controller-uuid',
-            mac='mastermac123',
-            name='controller_node',
-            node_role=NodeRole.controller,
-            ip='192.168.1.1',
-            adopted=False,
-        )
-        plain_node = Node(
-            uuid='node-uuid',
-            mac='slavemac1234',
-            name='node',
-            node_role=NodeRole.node,
-            ip='192.168.1.2',
-            adopted=False,
-        )
-        nodeconf.network_map['mastermac123'] = controller_node
-        nodeconf.network_map['slavemac1234'] = plain_node
-
-        nodeconf.set_master_always_adopted()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         assert nodeconf.network_map['mastermac123']['adopted'] is True
-        # Non-controllers are untouched by this method
         assert nodeconf.network_map['slavemac1234']['adopted'] is False
+
+
+class TestRefreshWritesOnlyWhatItMust:
+    """When the map is written — the part the yardstick does not pin."""
+
+    def test_an_unchanged_map_is_not_rewritten(self, tmp_path):
+        """Constitution II: write only on change (T022).
+
+        The write decision moves inside CuemsNetworkMapType.refresh during
+        feature 001, which is exactly when it could be lost without anything
+        failing.
+        """
+        map_path = str(tmp_path / 'network_map.xml')
+        nodeconf = _nodeconf(map_path)
+        nodeconf.listener.nodes['aabbccddeeff'] = Node(
+            uuid='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+            mac='aabbccddeeff',
+            name='aabbccddeeff._cuems_nodeconf._tcp.local.',
+            node_role=NodeRole.node,
+            ip='169.254.1.9',
+            online=True,
+        )
+
+        nodeconf.refresh_network_map()
+        assert os.path.exists(map_path)
+        written_at = os.stat(map_path).st_mtime_ns
+
+        real_save = CuemsNetworkMapType.save
+        with patch.object(CuemsNetworkMapType, 'save', autospec=True, side_effect=real_save) as save:
+            nodeconf.refresh_network_map()
+
+        assert not save.called
+        assert os.stat(map_path).st_mtime_ns == written_at
+
+    def test_a_failed_write_is_retried_on_the_next_refresh(self):
+        """A write that failed is owed, not forgotten.
+
+        Nothing about the discovery changes between the two passes, so a
+        write-only-on-change rule alone would never retry — leaving the map on
+        disk stale until some unrelated node event. The daemon retries on every
+        pass until the write lands.
+        """
+        nodeconf = _nodeconf()
+        nodeconf.listener.nodes['aabbccddeeff'] = Node(
+            uuid='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+            mac='aabbccddeeff',
+            name='aabbccddeeff._cuems_nodeconf._tcp.local.',
+            node_role=NodeRole.node,
+            ip='169.254.1.9',
+            online=True,
+        )
+
+        with patch.object(
+            CuemsNetworkMapType, 'save', side_effect=[PermissionError('read-only /etc'), None]
+        ) as save:
+            nodeconf.refresh_network_map()
+            nodeconf.refresh_network_map()
+
+        assert save.call_count == 2

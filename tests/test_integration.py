@@ -7,6 +7,7 @@ import sys
 
 from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
+from cuemsutils.config.network_map import CuemsNetworkMapType
 from cuemsnodeconf.CuemsAvahiListener import CuemsAvahiListener
 
 
@@ -99,7 +100,8 @@ class TestIntegrationScenarios:
         nodeconf.listener.nodes['discoveredmac'] = discovered_node
 
         # Merge discovered nodes
-        nodeconf.merge_discovered_nodes()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         # Adopt the node
         with patch.object(nodeconf, 'write_network_map'):
@@ -133,8 +135,8 @@ class TestIntegrationScenarios:
         nodeconf.listener.nodes['slavemac1234'] = plain_node
 
         # Merge and set controller as adopted
-        nodeconf.merge_discovered_nodes()
-        nodeconf.set_master_always_adopted()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         # Verify controller is adopted, node is not
         assert nodeconf.network_map['mastermac123']['adopted'] is True
@@ -187,8 +189,8 @@ class TestIntegrationScenarios:
         nodeconf.listener.nodes['slave3mac789'] = node3
 
         # Merge and set controller as adopted
-        nodeconf.merge_discovered_nodes()
-        nodeconf.set_master_always_adopted()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         # Verify all nodes are in network map
         assert len(nodeconf.network_map) == 4
@@ -267,8 +269,8 @@ class TestIntegrationScenarios:
         nodeconf.listener.nodes['firstrunmac789'] = firstrun
 
         # Merge nodes (should preserve adopted status for existing nodes)
-        nodeconf.merge_discovered_nodes()
-        nodeconf.set_master_always_adopted()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         # Verify all nodes are present
         assert len(nodeconf.network_map) == 4
@@ -326,7 +328,8 @@ class TestIntegrationScenarios:
         nodeconf.listener.nodes['mastermac123'] = controller
         nodeconf.listener.nodes['slave1mac123'] = node1
         nodeconf.listener.nodes['slave2mac456'] = node2
-        nodeconf.merge_discovered_nodes()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         assert nodeconf.network_map['mastermac123']['online'] is True
         assert nodeconf.network_map['slave1mac123']['online'] is True
@@ -337,7 +340,8 @@ class TestIntegrationScenarios:
         nodeconf.listener.nodes['mastermac123'] = controller
         nodeconf.listener.nodes['slave1mac123'] = node1
         # node2 is missing - not in discovered nodes
-        nodeconf.merge_discovered_nodes()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         # node2 should be marked offline
         assert nodeconf.network_map['mastermac123']['online'] is True
@@ -383,7 +387,8 @@ class TestIntegrationScenarios:
         nodeconf.listener.nodes['slave3mac789'] = node3
 
         # Merge discovered nodes
-        nodeconf.merge_discovered_nodes()
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         # Adopt nodes one by one
         with patch.object(nodeconf, 'write_network_map'):

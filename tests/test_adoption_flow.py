@@ -6,6 +6,7 @@ import pytest
 from unittest.mock import MagicMock, patch, call
 from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
+from cuemsutils.config.network_map import CuemsNetworkMapType
 import tempfile
 import os
 
@@ -196,8 +197,8 @@ class TestAdoptionFlow:
             assert node1['adopted'] is True
             assert node2['adopted'] is False  # Should remain unadopted
 
-    def test_adoption_after_merge_discovered_nodes(self, tmp_path):
-        """Test adoption after merging discovered nodes."""
+    def test_adoption_after_a_discovery_refresh(self, tmp_path):
+        """Test adoption of a node that reached the map through a discovery refresh."""
         nodeconf = CuemsNodeConf()
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
@@ -216,8 +217,9 @@ class TestAdoptionFlow:
         )
         nodeconf.listener.nodes['discoveredmac'] = discovered_node
 
-        # Merge discovered nodes
-        nodeconf.merge_discovered_nodes()
+        # Discovery reaches the map through a refresh
+        with patch.object(CuemsNetworkMapType, 'save'):
+            nodeconf.refresh_network_map()
 
         # Verify node is in network_map but not adopted
         assert 'discoveredmac' in nodeconf.network_map
