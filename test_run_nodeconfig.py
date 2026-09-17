@@ -55,10 +55,10 @@ def find_master(nodes):
 def register_node(zeroconf_instance, server, service_info, master_exists):
     
     if not master_exists:
-        node_type = 'master'
+        node_role = 'controller'
         logger.debug("no master in network, We are master!")
     else:
-        node_type = 'slave'
+        node_role = 'node'
         logger.debug("master present, We stay as slave")
 
     service_info = ServiceInfo(
@@ -66,7 +66,7 @@ def register_node(zeroconf_instance, server, service_info, master_exists):
         name,
         addresses=[socket.inet_aton(ip)],
         port=port,
-        properties={'node_type' : node_type },
+        properties={'node_role' : node_role },
         server=server,
         host_ttl=10,
         other_ttl=10,

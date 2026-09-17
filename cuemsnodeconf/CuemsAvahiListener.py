@@ -20,8 +20,8 @@ from cuemsutils.tools.NodeList import node as Node
 # resolves straight through NodeRole(...) and the translation table this module
 # used to carry is gone. The cutover is shared with cuems-common, which owns the
 # templates that publish the record (its feature 001, landed 1.3.0-22): a
-# listener reading node_role against a publisher writing node_type discovers
-# nothing, so the two halves merge together.
+# listener reading node_role against a publisher still writing the retired key
+# discovers nothing, so the two halves merge together.
 
 
 class CuemsAvahiListener():

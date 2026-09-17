@@ -401,12 +401,12 @@ class CuemsNodeConf():
 
     def _install_master_service_template(self):
         """Copy the master avahi service template into place (idempotent)."""
-        source = os.path.join(TEMPLATES_PATH, CUEMS_SERVICE_FILE) + '.master'
+        source = os.path.join(TEMPLATES_PATH, CUEMS_SERVICE_FILE) + '.controller'
         target = os.path.join('/etc/avahi/services/', CUEMS_SERVICE_FILE)
         try:
             shutil.copy2(source, target)
         except FileNotFoundError:
-            Logger.error(f"Master service template not found at {source}")
+            Logger.error(f"Controller service template not found at {source}")
             raise
         except PermissionError:
             Logger.error(f"Permission denied copying service template to {target}")
@@ -439,12 +439,12 @@ class CuemsNodeConf():
             # Copy slave node service template. nodeconf runs as root, so a
             # direct copy is correct here — the old `sudo cp` shelled out
             # needlessly and silently fails when sudo isn't passwordless.
-            source = os.path.join(TEMPLATES_PATH, CUEMS_SERVICE_FILE) + '.slave'
+            source = os.path.join(TEMPLATES_PATH, CUEMS_SERVICE_FILE) + '.node'
             target = os.path.join('/etc/avahi/services/', CUEMS_SERVICE_FILE)
             try:
                 shutil.copy2(source, target)
             except FileNotFoundError:
-                Logger.error(f"Slave service template not found at {source}")
+                Logger.error(f"Node service template not found at {source}")
                 raise
             except Exception as e:
                 Logger.error(f"Error copying slave service template: {type(e).__name__}: {e}")
@@ -519,7 +519,7 @@ class CuemsNodeConf():
         return {'OK': True}
 
     def read_network_map(self):
-        # feature 007 (T075): both legacy node_type spellings are gone after
+        # feature 007 (T075): both legacy spellings of the retired element are gone after
         # the postinst conversion (cuems-common M3) — network_map's own
         # adapter table now decodes node_role straight to NodeRole (R1), so
         # there is nothing left to normalise here.
