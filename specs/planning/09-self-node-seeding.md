@@ -131,7 +131,20 @@ resolve to it on any node whose real controller was discovered later:
 
 - `scripts/cuems-write-chrony-source` → the slave's chrony time source
 - `scripts/cuems-log-collector-url` → the slave's journal-upload target
-- `BaseEngine.get_controller_ip`'s fallback, when mDNS cannot resolve `controller.local`
+
+Both select with the XPath `./node_list/node[node_role='controller']/ip`, on the converted
+vocabulary, so they genuinely resolve to the placeholder.
+
+**The engine does not — for a worse reason.** `BaseEngine._controller_ip_from_map`
+(`BaseEngine.py:344-357`), the fallback `get_controller_ip` uses when mDNS cannot resolve
+`controller.local`, matches `node.get('node_type') == "NodeType.master"` — the pre-007
+spelling. Against a converted map it matches nothing, raises, and `set_controller_ip` turns
+that into `exit(-1)`. `find_hosts` (`:360-387`) carries the same stale spelling plus
+`online == 'True'` against a now-boolean field, and has **no callers at all**, so its
+`Multiple controllers found in network map` guard cannot fire today. Both are cuems-engine's
+to migrate — `cuems-common`'s CLAUDE.md records `CONTROLLER_NETWORK_FLAG` as feature 010's,
+"once the readers move" — and the placeholder becomes reachable by that guard the moment
+they do.
 
 Measured after seeding: the first `node_role='controller'` in the written map was still
 `0367f391-…-0001` at `192.168.1.10`.
