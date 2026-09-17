@@ -25,7 +25,7 @@ Depends: ${misc:Depends},
          python3-systemd (>= 235),
          avahi-daemon,
          avahi-utils
-Breaks: cuems-common (<< 1.3.0-22)
+Breaks: cuems-common (<< 1.3.0-23~)
 Description: CUEMS node discovery + adoption daemon
  cuems-nodeconf discovers CUEMS cluster nodes over avahi/zeroconf
  (_cuems_nodeconf._tcp), elects controller vs node role, and maintains

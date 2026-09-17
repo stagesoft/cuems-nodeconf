@@ -19,7 +19,7 @@ from cuemsutils.tools.NodeList import node as Node
 # controller/node/firstrun vocabulary NodeRole itself uses, so the wire value
 # resolves straight through NodeRole(...) and the translation table this module
 # used to carry is gone. The cutover is shared with cuems-common, which owns the
-# templates that publish the record (its feature 001, landed 1.3.0-22): a
+# templates that publish the record (its feature 001, landing in 1.3.0-23): a
 # listener reading node_role against a publisher still writing the retired key
 # discovers nothing, so the two halves merge together.
 
