@@ -79,7 +79,11 @@ After analyzing the codebase and simulating a computer startup with this service
 **Location:** `CuemsAvahiListener.py:70`
 **Problem:** Uses `list(info.properties.keys())[0]` instead of `b'node_type'` like in `add_service()` (line 50)
 **Impact:** May access wrong property if properties are in different order, causing `KeyError` or wrong node type.
-**Fix Required:** Use `b'node_type'` consistently.
+**Fix Required:** Use the TXT key by name rather than by position.
+
+> **Update, 2026-09-17 (feature 001):** done, but with the renamed key — the record is
+> `node_role` since the coordinated cutover with cuems-common, and `AvahiTool.py` now reads
+> `info.properties[b"node_role"]`. The advice above is kept as written for the record.
 
 ---
 
