@@ -40,8 +40,10 @@ Both must be renamed in every template. `uuid` is untouched.
 
 | Repository | Owns |
 |---|---|
-| **cuems-common** | `etc/avahi/services/cuems.service`; `usr/share/cuems/cuems.service.{firstrun,master,slave}` — the shipped templates, **including the filenames** and the `debian/install` entries that place them |
+| **cuems-common** | `etc/avahi/services/cuems.service`; `usr/share/cuems/cuems.service.{firstrun,master,slave}` — the shipped templates, **including the filenames**; and the two consumers that name those files literally and break on the rename: `usr/bin/cuems-config-node:64` (provisioning rewrites each template's `uuid` by name) and `etc/sudoers.d/99-cuems:3-5` (the grants that copy a template into place) |
 | **cuems-nodeconf** (this) | the publisher (`CuemsSettings.py:27`); the consumer (`CuemsAvahiListener.py:96-155`); **two** translation tables; the installer's template-path construction (`CuemsNodeConf.py:381`, `:419`); test fixtures; the non-shipped dev script |
+
+**The counterpart exists.** `cuems-common`'s feature `specs/001-node-role-and-conversion-ordering` owns that half and already covers both consumers: its plan names the sudoers file and `cuems-config-node:64`, T007 tests that every file naming a template names one that exists, T008 performs the renames, and its T004 cross-checks *this* file. Keep this contract the stable reference it compares against.
 
 **Two tables, not one.** The consumer audit named `CuemsAvahiListener`'s
 `_AVAHI_NODE_TYPE_TO_ROLE`. `AvahiTool.py` carries **its own identical copy**. Both retire.

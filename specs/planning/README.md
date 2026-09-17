@@ -23,6 +23,7 @@ The other files are what its CONTEXT block asks for, brought in-repo.
 | `06-node-model-handover.md` | Feature 007's moved-symbol table and public import path | Confirm 007 landed here; do **not** redo it |
 | `07-public-surface.md` | The public replacements, the version floor, `Timeoutloop` | Wave 0 landed — these exist now |
 | `08-firstrun-signals.md` | **Repo-original, not vendored.** The three signals this repository calls "first run", what feature 001 deleted and why, and the options if genuine first-boot behaviour is ever needed | Written 2026-09-07 during 001's preparation. The deleted branch also closes 008's "left for 009 to reconcile" note in file 05 |
+| `09-self-node-seeding.md` | **Repo-original, not vendored.** Whether nodeconf should write its own entry at start-up: the two eager `get_node` lookups, what a seed needs, its preconditions, and the provisioning requirements | Research only, 2026-09-17. Read it before answering "why not just create the node?" — and before touching the shipped placeholder controller |
 | `yardstick/test_nodeindex_characterization.py` | **The yardstick** | D22: the swap is done when these pass, not when the code looks equivalent |
 
 ## The one thing to understand before starting
