@@ -15,7 +15,8 @@ Package: cuems-nodeconf
 Architecture: all
 Depends: ${misc:Depends},
          ${python3:Depends},
-         cuems-utils (>= 0.1.0rc5),
+         cuems-utils (>= 0.1.0rc16),
+         cuems-utils (<< 0.1.1~),
          cuems-common (>= 1.0.0),
          python3 (>= 3.11),
          python3-netifaces,
@@ -24,10 +25,11 @@ Depends: ${misc:Depends},
          python3-systemd (>= 235),
          avahi-daemon,
          avahi-utils
+Breaks: cuems-common (<< 1.3.0-22)
 Description: CUEMS node discovery + adoption daemon
  cuems-nodeconf discovers CUEMS cluster nodes over avahi/zeroconf
  (_cuems_nodeconf._tcp), elects controller vs node role, and maintains
- /etc/cuems/network_map.xml (uuid, mac, ip, node_type, adopted, online)
+ /etc/cuems/network_map.xml (uuid, mac, ip, node_role, adopted, online)
  as nodes appear and their IPv4LL addresses change.
  .
  On the controller it also publishes interface-scoped avahi aliases via the

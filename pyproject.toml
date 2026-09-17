@@ -25,7 +25,7 @@ include = "cuemsnodeconf"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-cuemsutils = ">=0.1.0rc15"
+cuemsutils = ">=0.1.0rc16,<0.1.1"
 # The following are provided by Debian system packages and exposed to the
 # venv via dh_virtualenv --use-system-packages (see debian/control):
 #   python3-netifaces, python3-dbus, python3-zeroconf, python3-systemd

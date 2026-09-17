@@ -1,3 +1,25 @@
+cuems-nodeconf (0.1.0-8) unstable; urgency=medium
+
+  * The Avahi discovery TXT record now carries node_role with the
+    controller/node/firstrun vocabulary, replacing node_type with
+    master/slave/firstrun. This is one coordinated cutover with
+    cuems-common 1.3.0-22, which owns the service templates: a listener
+    and a publisher that disagree about the key discover nothing, so the
+    two packages must move together. Breaks: cuems-common (<< 1.3.0-22)
+    refuses the half-renamed combination this package can refuse;
+    cuems-common carries the other direction.
+  * The controller and node service templates are resolved under their
+    new names, cuems.service.controller and cuems.service.node.
+  * The network map's merge, adoption, signature and write decisions now
+    come from cuems-utils rather than being reimplemented here; the
+    operator-visible adopt/unadopt answers are unchanged, and a failed
+    write is still retried on the next discovery pass.
+  * cuems-utils is bounded (>= 0.1.0rc16, << 0.1.1~) instead of carrying
+    two disagreeing floors: a floor alone cannot refuse a library that
+    has moved past this package.
+
+ -- Ion Reguera <ion@stagelab.coop>  Thu, 17 Sep 2026 16:15:56 +0000
+
 cuems-nodeconf (0.1.0-7) unstable; urgency=medium
 
   * Route Avahi-listener/ConfServer through cuemsutils.log: drop the
