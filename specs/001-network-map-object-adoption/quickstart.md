@@ -20,7 +20,9 @@ are therefore manual, on the live controller, and no amount of green suite subst
 - No `/etc/cuems` is needed for §1–§2. Tests that reach `ConfigManager` provision
   `settings.xml` and `network_map.xml` through the `cuems_conf_dir` fixture
   (`tests/fixtures/etc_cuems/`). On a node both files are always present.
-- For §4 only: the sibling `cuems-common` checkout carrying flow 03's half.
+- For §4 only: the sibling `cuems-common` and `cuems-utils` checkouts — the demonstration builds the
+  counterpart packages from the first and a `cuemsutils` wheel from the second — plus `mmdebstrap`, `uidmap`
+  and `equivs`, and `/etc/subuid`/`/etc/subgid` ranges for your user. It needs no root.
 - For §3 and §4: SSH to the controller running this daemon.
 
 ---
@@ -114,18 +116,39 @@ skip the service**, not silently default it. Confirm nodes fail to appear rather
 appearing mis-roled. Silent mis-roling would be the worse bug and is what the logging
 exists to prevent.
 
-**SC-007 — the package refusal.** Build `.deb`s of both packages and attempt the
-out-of-order install:
+**SC-007 — the package refusal, demonstrated by script.** Do not hand-run `dpkg -i`:
 
 ```bash
-sudo dpkg -i cuems-common_*.deb              # carries the new vocabulary
-sudo dpkg -i cuems-nodeconf_0.1.0-7_all.deb  # the pre-cutover version
-# expect: refused — cuems-common Breaks: cuems-nodeconf (<< 0.1.0-8)
+tests/packaging/release-gate-demo.sh    # ~6 min; needs network for the mirror and PyPI
 ```
 
-This demonstration was deferred once already, because no releasable `.deb` of any of the
-three repositories existed. This feature is the release, so the excuse has expired: **a
-gate that has never been demonstrated is a claim.**
+It builds the REAL packages — this repository at `0.1.0-8` and at the pre-cutover
+`0.1.0-7`, and `cuems-common` at `1.3.0-23` and `1.3.0-22` — stubs `cuems-utils` at the
+versions this package's bound names, and replays nine install scenarios inside an
+unprivileged, disposable bookworm system. It writes `evidence/out-of-order-refusal.txt`
+and exits non-zero if any observed outcome differs from its expectation. **That evidence
+file is generated: never edit it by hand, re-run the script.**
+
+| | Scenario | Expected |
+|---|---|---|
+| N1 | `0.1.0-8` beside `cuems-common` 1.3.0-22 — *this* package's `Breaks` | REFUSED |
+| N2 | `cuems-common` 1.3.0-23 beside `0.1.0-7` — the counterpart's `Breaks` | REFUSED |
+| N3a / N3b | `0.1.0-8` beside `cuems-utils` below the floor / past the ceiling | REFUSED |
+| N4 | the baseline field host, everything pre-cutover | ACCEPTED |
+| N5 / N6 | upgrading only one half of the cutover on that host | REFUSED |
+| N7 | upgrading both halves in one `apt-get` call — the cluster upgrades as a unit | ACCEPTED |
+| N8 | `dpkg -i` of `0.1.0-7` on the upgraded host | BREAKS-UNCONFIGURED |
+
+**Why N8 is not "REFUSED".** apt resolves before it unpacks, so it refuses outright. `dpkg
+-i` unpacks first and resolves after, so the same relationship surfaces as a refusal to
+*configure*: dpkg reports `cuems-common (1.3.0-23) breaks cuems-nodeconf (<< 0.1.0-8) and
+is installed`, exits 1, and leaves the package unconfigured. The gate is holding either
+way, but it is a different observable outcome and the script classes it apart — so that a
+maintainer-script failure can never pass as the gate working.
+
+This demonstration was deferred once, because no releasable `.deb` of any of the three
+repositories existed. **A gate that has never been demonstrated is a claim** — it has now
+been run.
 
 ## 5. Recovery, if the daemon misbehaves after deployment
 
