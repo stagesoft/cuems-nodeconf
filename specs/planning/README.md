@@ -56,6 +56,15 @@ Three, all recorded rather than silently fixed:
    `CuemsAvahiListener.py:19-24` defer the TXT-record change "to feature 008" — a closed,
    `cuems-utils`-only feature. Correcting them is part of the work (C9).
 
+4. **A machine-specific path, left deliberately.** `04a-cuems-nodeconf-public-path.md`'s `Repository:`
+   header names `/disk/Projects/StageLab/cuems-nodeconf` — the author's checkout, absent here. Kept
+   verbatim so the vendored body stays byte-comparable with upstream; this repository's own artefacts
+   (`tests/packaging/release-gate-demo.sh`, the evidence files) use relative paths only, because evidence
+   has to reproduce on any development machine.
+5. **File 09's §6 went stale in ten days** — it described a placeholder controller `cuems-common` has
+   since deleted (`f78c876`). Corrected in-file with a dated note rather than rewritten, since §8's
+   recommendation was reached with the placeholder in view.
+
 ## Freshness — the coordinates were already stale on arrival
 
 The audit that produced this bundle measured `CuemsNodeConf.py` on **2026-09-03** at `7abc01f`.

@@ -50,6 +50,6 @@ every other consumer of `save_document` is exposed the same way.
 - **T042**, the merge gate: cuems-common's counterpart is ready at `1a00159`, and its own
   gate T019 waits on this repository. What remains is the human agreement on a shared merge
   window. Neither half merges alone.
-- **T049**, the upstream report: written at
-  `specs/001-network-map-object-adoption/upstream-report.md`, **not yet filed** into
-  `cuems-utils`. That is an edit to another repository and belongs to whoever owns it.
+- ~~**T049**, the upstream report~~ — **done.** Filed, received in `b6b5eb5` and closed by `6fe2d3f`
+  (the mode fix, with its own failing-first test) and `9e5e79f` (both docstrings). All three findings are
+  fixed in the library; none was patched from this side.

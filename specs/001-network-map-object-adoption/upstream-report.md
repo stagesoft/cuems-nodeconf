@@ -1,5 +1,17 @@
 # To report upstream in `cuems-utils` — three findings, none of them patched here
 
+> ## ✅ All three closed upstream, 2026-09-17 — none patched from this side
+>
+> | Finding | Resolution |
+> |---|---|
+> | 1. `save_document` leaves the target `0600` | **Fixed** in `6fe2d3f`, at the choke point `write_tree`, so it covers every `save_document` consumer. `tests/contract/test_save_permissions.py` (their T081) written failing-first: 6 of 10 assertions failed pre-fix, 10/10 pass now. Re-measured here against `9e5e79f`: `0644` in, `0644` out |
+> | 2. `set_controller_always_adopted`'s docstring | **Rewritten** in `9e5e79f` (their T082a) — now states there is deliberately no first-run behaviour, and why the deleted branch was harmful |
+> | 3. `refresh`'s "open item" paragraph | **Rewritten** in `9e5e79f` (their T082b) — now says the item is closed, and closed in the library's favour |
+>
+> Received in `b6b5eb5` ("receive nodeconf's upstream report"); their T080-T084 are all `[X]`. The
+> discipline held in both directions: every fix landed in the library, and the vendored yardstick is
+> still byte-identical (`sha256 6212292683…`, untouched by the pull).
+
 **Raised 2026-09-17 from `cuems-nodeconf`'s feature 001** (T049 and T052). Measured against
 `cuems-utils` @ `d0340fc` (`0.1.0rc16`). Nothing in this document has been fixed from this
 side, deliberately: the yardstick's guarantee depends on

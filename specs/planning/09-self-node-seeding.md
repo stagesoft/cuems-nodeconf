@@ -122,6 +122,15 @@ Writing this node's own identity row is that same remit.
 
 ## 6. What seeding does *not* fix
 
+> **⚠️ CORRECTED 2026-09-17, after the fact.** This subsection is **no longer true**: cuems-common
+> **deleted** the placeholder node in `f78c876` ("the shipped network map can no longer overwrite a live
+> topology"), and at `1a00159` ships an empty `<node_list/>` — 0 `<node>` entries, verified by reading the
+> file. Their `tests/test_shipped_network_map.py` (T036) now asserts the shipped map declares **no** `<node>`,
+> so a placeholder cannot be reintroduced. The chrony and log-collector XPaths below are unchanged and still
+> select the first `node_role='controller'`, but on a fresh node they now find **nothing** and warn, instead
+> of resolving to `192.168.1.10`. The paragraph is kept as written because §8's recommendation was reached
+> with it in view. What follows described cuems-common at `e149089`:
+
 **The placeholder controller.** `cuems-common` ships `etc/cuems/network_map.xml` as a
 conffile listing one controller, uuid `0367f391-…-0001`, ip `192.168.1.10`. Discovery never
 removes unknown nodes (by design — they are "known but absent"), and
