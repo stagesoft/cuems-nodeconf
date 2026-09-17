@@ -33,14 +33,14 @@ class TestCuemsAvahiListener:
         """Test adding a service with valid service info."""
         listener = CuemsAvahiListener(ip='169.254.1.1')
 
-        # Create mock service info. The Avahi TXT record's own key/value
-        # ('node_type=slave') is unchanged by feature 007 (deferred to
-        # feature 008) — the listener translates it into node_role=NodeRole.node.
+        # Create mock service info. Since feature 001's cutover (D33) the TXT
+        # record carries node_role in NodeRole's own vocabulary, so 'node'
+        # resolves straight to NodeRole.node with no translation table.
         mock_info = MagicMock()
         mock_info.parsed_addresses.return_value = ['169.254.1.1']
         mock_info.properties = {
             b'uuid': b'test-uuid-123',
-            b'node_type': b'slave'
+            b'node_role': b'node'
         }
         mock_info.port = 9000
 
@@ -92,8 +92,8 @@ class TestCuemsAvahiListener:
         # No node should be added
         assert len(listener.nodes) == 0
 
-    def test_add_service_with_unrecognised_node_type(self):
-        """Test that add_service refuses an unrecognised node_type value."""
+    def test_add_service_with_unrecognised_node_role(self):
+        """Test that add_service refuses an unrecognised node_role value."""
         listener = CuemsAvahiListener(ip='169.254.1.1')
         listener.nodes = NodeIndex()
 
@@ -101,7 +101,7 @@ class TestCuemsAvahiListener:
         mock_info.parsed_addresses.return_value = ['169.254.1.1']
         mock_info.properties = {
             b'uuid': b'test-uuid-123',
-            b'node_type': b'bogus',
+            b'node_role': b'bogus',
         }
         mock_info.port = 9000
 
@@ -121,7 +121,7 @@ class TestCuemsAvahiListener:
         mock_info.parsed_addresses.return_value = ['169.254.1.1']
         mock_info.properties = {
             b'uuid': b'test-uuid-123',
-            b'node_type': b'slave'
+            b'node_role': b'node'
         }
         mock_info.port = 9000
 

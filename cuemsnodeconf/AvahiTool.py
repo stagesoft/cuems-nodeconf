@@ -7,31 +7,24 @@ from cuemsutils.tools.NodeList import NodeRole
 
 SERVICES = ['_cuems_nodeconf._tcp.local.', '_cuems_osc._tcp.local.']
 
-# feature 007: the duplicate NodeType enum this file used to define is gone —
-# NodeRole is the one definition (contract C1). The Avahi TXT record's own
-# key/value ('node_type=master' etc.) is UNCHANGED (deferred to feature 008,
-# spec Assumption 10), so a lookup by *name* against NodeRole (whose members
-# are spelled controller/node/firstrun) cannot resolve "master"/"slave" the
-# way the old NodeType[...] lookup could. This manual debug tool (unreferenced
-# by any production code path — confirmed via repo-wide search, FR-018) is
-# fixed to decode through the same wire-to-model mapping
-# CuemsAvahiListener.py uses, rather than left silently broken.
-_AVAHI_NODE_TYPE_TO_ROLE = {
-    'master': NodeRole.controller,
-    'slave': NodeRole.node,
-    'firstrun': NodeRole.firstrun,
-}
+# feature 001 (D33): the TXT record carries node_role, in NodeRole's own
+# controller/node/firstrun vocabulary, so the wire value resolves through
+# NodeRole(...) directly and the translation table this file used to duplicate
+# from CuemsAvahiListener.py is gone. This manual debug tool is unreferenced by
+# any production code path (confirmed via repo-wide search, FR-018).
 
 
 def _decode_role(raw: str) -> str:
     """The TXT record's raw value, as a human-readable role label.
 
-    Falls back to the raw string for a value neither the legacy nor the
-    current vocabulary recognises, rather than raising — this is a debug
-    print tool; a KeyError here would just be a worse way to say "unknown".
+    Falls back to the raw string for an unrecognised value rather than
+    raising — this is a debug print tool; a ValueError here would just be a
+    worse way to say "unknown".
     """
-    role = _AVAHI_NODE_TYPE_TO_ROLE.get(raw)
-    return role.value if role is not None else f"{raw} (unrecognised)"
+    try:
+        return NodeRole(raw).value
+    except ValueError:
+        return f"{raw} (unrecognised)"
 
 class MyAvahiListener():
     @enum.unique
@@ -85,7 +78,7 @@ class MyAvahiListener():
         print(f'SERVICE: {info.type}')
         print(f'UUID: {info.properties[b"uuid"].decode("utf8")}')
         print(f'MAC: {info.name[:12]}')
-        print(f'Node role: {_decode_role(info.properties[list(info.properties.keys())[0]].decode("utf-8"))}')
+        print(f'Node role: {_decode_role(info.properties[b"node_role"].decode("utf-8"))}')
         print(f'IP: {info.parsed_addresses()[0]}')
         print(f'Port: {info.port}')
         print(f'Whole info: {info}')
@@ -97,11 +90,11 @@ class MyAvahiListener():
         print(f'CURRENT PRESENT NODECONF NODES:')
         for key, value in self.services.items():
             if value.type == '_cuems_nodeconf._tcp.local.':
-                print(f'{value.parsed_addresses()[0]} : {value.port} - {_decode_role(value.properties[list(value.properties.keys())[0]].decode("utf-8"))}')
+                print(f'{value.parsed_addresses()[0]} : {value.port} - {_decode_role(value.properties[b"node_role"].decode("utf-8"))}')
         print(f'\nCURRENT PRESENT OSC NODES:')
         for key, value in self.services.items():
             if value.type == '_cuems_osc._tcp.local.':
-                print(f'{value.parsed_addresses()[0]}  : {value.port} - {_decode_role(value.properties[list(value.properties.keys())[0]].decode("utf-8"))}')
+                print(f'{value.parsed_addresses()[0]}  : {value.port} - {_decode_role(value.properties[b"node_role"].decode("utf-8"))}')
         
 
 

@@ -18,7 +18,7 @@ class TestNoLocalNodeRoleEnum:
     """T067: no node-role enum is defined locally; every usage resolves to
     the ``cuemsutils`` definition."""
 
-    def test_cuemsnodeconf_defines_no_own_node_type_module(self):
+    def test_cuemsnodeconf_defines_no_own_node_role_module(self):
         with pytest.raises(ModuleNotFoundError):
             import cuemsnodeconf.CuemsNode  # noqa: F401
 

@@ -15,18 +15,13 @@ from cuemsutils.tools.NodeList import node as Node
 # now comes from cuemsutils.main_logger like every other module in this
 # package, which handles systemd vs terminal output and real syslog priorities.
 
-# feature 007: the Avahi TXT record itself is UNCHANGED — its key is still
-# 'node_type' and its value is still the legacy master/slave/firstrun
-# spelling (deferred to feature 008, spec Assumption 10; see cuems-common's
-# etc/avahi/services and usr/share/cuems/cuems.service.* templates). What
-# changes here is the *model* built from that wire value: every discovered
-# node becomes a cuemsutils node carrying node_role (a NodeRole), not
-# node_type (a string). This is the one place that boundary is crossed.
-_AVAHI_NODE_TYPE_TO_ROLE = {
-    'master': NodeRole.controller,
-    'slave': NodeRole.node,
-    'firstrun': NodeRole.firstrun,
-}
+# feature 001 (D33): the Avahi TXT record now carries node_role, with the same
+# controller/node/firstrun vocabulary NodeRole itself uses, so the wire value
+# resolves straight through NodeRole(...) and the translation table this module
+# used to carry is gone. The cutover is shared with cuems-common, which owns the
+# templates that publish the record (its feature 001, landed 1.3.0-22): a
+# listener reading node_role against a publisher writing node_type discovers
+# nothing, so the two halves merge together.
 
 
 class CuemsAvahiListener():
@@ -93,14 +88,15 @@ class CuemsAvahiListener():
             if b'uuid' not in info.properties:
                 self.logger.error(f'Missing uuid property for service {name}')
                 return
-            if b'node_type' not in info.properties:
-                self.logger.error(f'Missing node_type property for service {name}')
+            if b'node_role' not in info.properties:
+                self.logger.error(f'Missing node_role property for service {name}')
                 return
             
-            raw_role = info.properties[b'node_type'].decode("utf-8")
-            node_role = _AVAHI_NODE_TYPE_TO_ROLE.get(raw_role)
-            if node_role is None:
-                self.logger.error(f"Unrecognised node_type {raw_role!r} in service {name}; accepted: {sorted(_AVAHI_NODE_TYPE_TO_ROLE)}")
+            raw_role = info.properties[b'node_role'].decode("utf-8")
+            try:
+                node_role = NodeRole(raw_role)
+            except ValueError:
+                self.logger.error(f"Unrecognised node_role {raw_role!r} in service {name}; accepted: {sorted(r.value for r in NodeRole)}")
                 return
 
             node = Node(uuid=info.properties[b"uuid"].decode("utf-8"), mac=self.get_mac(name), name=name, node_role=node_role, ip=ip, adopted=False, online=True)
@@ -145,14 +141,15 @@ class CuemsAvahiListener():
             if b'uuid' not in info.properties:
                 self.logger.error(f'Missing uuid property for service {name}')
                 return
-            if b'node_type' not in info.properties:
-                self.logger.error(f'Missing node_type property for service {name}')
+            if b'node_role' not in info.properties:
+                self.logger.error(f'Missing node_role property for service {name}')
                 return
             
-            raw_role = info.properties[b'node_type'].decode("utf-8")
-            node_role = _AVAHI_NODE_TYPE_TO_ROLE.get(raw_role)
-            if node_role is None:
-                self.logger.error(f"Unrecognised node_type {raw_role!r} in service {name}; accepted: {sorted(_AVAHI_NODE_TYPE_TO_ROLE)}")
+            raw_role = info.properties[b'node_role'].decode("utf-8")
+            try:
+                node_role = NodeRole(raw_role)
+            except ValueError:
+                self.logger.error(f"Unrecognised node_role {raw_role!r} in service {name}; accepted: {sorted(r.value for r in NodeRole)}")
                 return
 
             node = Node(uuid=info.properties[b"uuid"].decode("utf-8"), mac=self.get_mac(name), name=name, node_role=node_role, ip=ip, adopted=False, online=True)
