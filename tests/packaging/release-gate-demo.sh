@@ -78,9 +78,13 @@ log "work directory: $WORK"
 # offered to pip through PIP_FIND_LINKS — see §2 for why that is the supported
 # route rather than a debian/rules edit.
 UTILS_COMMIT="$(git -C "$UTILS" rev-parse HEAD)"
+# Relative to the repository, so the evidence reads the same on any development
+# machine. realpath --relative-to turns /.../cuems-nodeconf/../cuems-utils into
+# ../cuems-utils; the fallback keeps whatever was given if realpath is absent.
+UTILS_REL="$(realpath --relative-to="$REPO" "$UTILS" 2>/dev/null || printf '%s' "$UTILS")"
 UTILS_DIRTY=""
 [ -n "$(git -C "$UTILS" status --porcelain)" ] && UTILS_DIRTY=" (+ uncommitted changes)"
-log "building the cuemsutils wheel from $UTILS @ ${UTILS_COMMIT:0:7}$UTILS_DIRTY"
+log "building the cuemsutils wheel from $UTILS_REL @ ${UTILS_COMMIT:0:7}$UTILS_DIRTY"
 if command -v uv >/dev/null 2>&1; then
     (cd "$UTILS" && uv build --wheel --out-dir "$WORK/wheels") > "$WORK/wheel.log" 2>&1 \
         || { log "wheel build failed — see $WORK/wheel.log"; exit 1; }
@@ -346,7 +350,7 @@ mkdir -p "$(dirname "$OUT")"
     echo "# cuems-common (new):   $COMMON_NEW_VERSION, REAL package built from $COMMON_NEW = $COMMON_NEW_COMMIT"
     echo "# cuems-common (old):   $COMMON_OLD_VERSION, REAL package built from $COMMON_OLD = $COMMON_OLD_COMMIT"
     echo "# cuems-utils:          STUBS at ${UTILS_VERSIONS[*]} (equivs; no .deb of the library exists at these versions)"
-    echo "# cuemsutils for pip:   $WHEEL, built from $UTILS @ $UTILS_COMMIT$UTILS_DIRTY with $WHEEL_TOOL,"
+    echo "# cuemsutils for pip:   $WHEEL, built from $UTILS_REL @ $UTILS_COMMIT$UTILS_DIRTY with $WHEEL_TOOL,"
     echo "#                       offered to dh_virtualenv's pip as PIP_FIND_LINKS for the build only."
     echo "#                       $DHV_VERSION runs pip via subprocess.check_call with no env= override"
     echo "#                       (deployment.py:182,196), so PIP_* is inherited; debian/rules is unchanged."
