@@ -1,4 +1,4 @@
-cuems-nodeconf (0.1.0-8) unstable; urgency=medium
+cuems-nodeconf (0.1.0-8) UNRELEASED; urgency=medium
 
   * The Avahi discovery TXT record now carries node_role with the
     controller/node/firstrun vocabulary, replacing node_type with
