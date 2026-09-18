@@ -56,7 +56,8 @@ every other consumer of `save_document` is exposed the same way.
 - **T042**, the merge gate — **still due**. Settled: cuems-common's candidate is the pushed tag
   `xml-refactor-merge-candidate` → `f2fc0f5` (same packaging as `1a00159`, which T047 built), the same tag
   name marks every repository's candidate, and the target is `rc_1` (here `74dca72`, a fast-forward). Due:
-  this repository's own tag, which does not exist yet, and the human agreement on the merge window.
+  this repository's own tag — deliberately not created yet, because feature 002 is part of the candidate; it is
+  tagged once 002 is merged locally into `feat/xml-refactor` — and the human agreement on the merge window.
 - ~~**T049**, the upstream report~~ — **done.** Filed, received in `b6b5eb5` and closed by `6fe2d3f`
   (the mode fix, with its own failing-first test) and `9e5e79f` (both docstrings). All three findings are
   fixed in the library; none was patched from this side.
