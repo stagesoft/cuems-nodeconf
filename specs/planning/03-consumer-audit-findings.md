@@ -111,6 +111,9 @@ carry consumer impact §8 predates:
   path and uses it at `:309, :617, :629`. Recorded as an open follow-up in
   `specs/planning/tools-external-consumers-and-timeoutloop-migration.md`
   (Track 2, item 5) — the only remaining open item in that document.
+  > **✅ Closed here by feature 001** (annotated 2026-09-18): `CuemsNodeConf.py` imports
+  > `cuemsutils.tools.TimeoutLoop`, and no `cuemsutils.timeoutloop` import remains (SC-008).
+  > `cuems-utils`' import census recorded it gone (`b6b5eb5`).
 - **`573daa0`** — `xml/_deprecation.py` promoted to `cuemsutils/_deprecation.py`.
   No consumer imports it directly (checked); recorded so the shim's own import
   path is not mistaken for stable.

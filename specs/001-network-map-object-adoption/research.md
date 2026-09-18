@@ -186,6 +186,9 @@ likewise still describes the un-ported branch as an open item. Both should be co
 `cuems-utils`; report rather than patch, since the yardstick's guarantee depends on that
 file not being edited from this side.
 
+> **✅ Closed 2026-09-17** — reported (T049) and both docstrings rewritten upstream in `cuems-utils`
+> `9e5e79f` (their T082). See `upstream-report.md`.
+
 ---
 
 ## D-G — The public load path is equal in result, verified not assumed

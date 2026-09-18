@@ -32,7 +32,9 @@
 #         OUT=<file>      evidence file (default: the feature's evidence/ file)
 #         OLD_REF=<ref>   this repo's pre-cutover release (default: 478bc49, 0.1.0-7)
 #         COMMON=<path>   cuems-common checkout (default: ../cuems-common)
-#         COMMON_NEW=<ref> its renamed release (default: 1a00159, 1.3.0-23)
+#         COMMON_NEW=<ref> its renamed release (default: 1a00159, 1.3.0-23). Its debian/
+#                  is identical to the merge-gate tag xml-refactor-merge-candidate
+#                  (f2fc0f5), so evidence built from either describes the same packages.
 #         COMMON_OLD=<ref> its released predecessor (default: rc_1, 1.3.0-22)
 #         UTILS=<path>    cuems-utils checkout for the wheel (default: ../cuems-utils)
 #         MIRROR=<url>    Debian mirror (default: http://deb.debian.org/debian)

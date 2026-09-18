@@ -140,6 +140,9 @@ takes no first-run parameter, which feature 008 recorded as *"Not ported ... Lef
 009 to reconcile"* (`05-network-map-api.md`). There is nothing to reconcile: the
 omission was correct.
 
+> **✅ Settled upstream as well, 2026-09-17:** after this repository reported it (T049), `cuems-utils`
+> rewrote both docstrings that still called it open (`9e5e79f`, their T082).
+
 ---
 
 ## The shape any future first-run logic has to fit
