@@ -51,7 +51,8 @@ two separate invocations.
 stay readable by non-root services; the write-only-if-changed gate must be preserved.
 
 **Scale/Scope**: one class touched (`CuemsNodeConf`), 4 call sites, 1 import removed, ~28 test
-setup lines, 1 new fixture, 3 new tests.
+setup lines, 1 new fixture, **3** new test files (`test_library_prerequisite`, `test_public_surface`,
+`test_fresh_node_boot`) plus one test added to `test_network_map.py`, and 1 deferred-verification checklist.
 
 ## Constitution Check
 
@@ -62,7 +63,7 @@ setup lines, 1 new fixture, 3 new tests.
 | **I. Root privilege is correctness** | The seed is a **new filesystem object created by a root process and read by `User=cuems` engines**. Its mode must be decided deliberately, stated, and tested | **PASS with an explicit requirement.** R4 measured `0600` under umask `0077`, so the seed is written and then `chmod 0644` — the mode `cuems-common` installs. Pinned by a test, not left to systemd's default umask |
 | **II. The output is a file other services read** | Writes complete or absent; never write when nothing changed | **PASS.** The seed is written atomically (temp file in the same directory, then `os.replace`), so a crash mid-write cannot leave a partial map. The signature gate is untouched: `refresh` still decides, and `_map_write_pending` still owes a retry. Refilling `node_list` wholesale before each use preserves "the index is the single source of truth" |
 | **III. Identity is keyed by UUID** | No name-derived identity key | **PASS — not touched.** The seed contains **no nodes**, so it introduces no identity at all. Merge and adoption paths are unchanged |
-| **IV. RPC responses are a UI contract** | `{'OK': bool, 'error'?: str}` unchanged; every request answered | **PASS, with verification owed.** `adopt_node`/`unadopt_node` keep their shape; only the document they save through changes. The 28 affected tests include the operator outcome-table tests, which must pass **unmodified in intent**. Real-hardware check recorded as not performed (see quickstart) |
+| **IV. RPC responses are a UI contract** | `{'OK': bool, 'error'?: str}` unchanged; every request answered | **PASS in shape, with the end-to-end check DEFERRED by decision (2026-09-21).** `adopt_node`/`unadopt_node` keep their response shape; only the document they save through changes, and the operator outcome-table tests must pass **unmodified in intent**. Constitution IV also wants the chain verified against the real dispatch path, which needs a controller and the operator UI — deferred, and carried on the checklist T018 builds (FR-012) together with feature 001's T050, rather than left as an implied "later" |
 | **V. No eleventh responsibility** | Nothing added beyond the ten | **PASS.** This *narrows* row 5: the daemon stops constructing documents. The seed helper belongs to the same network-map responsibility; it is ~6 lines, not a new concern. The atomization basis stays valid |
 | **VI. Boot ordering is product behaviour** | Reason explicitly about ordering and races | **PASS, and it constrains the design.** R2: `set_comms()` runs **before** `run()`, so adopt RPCs can arrive before the map is read. `read_network_map` MUST keep the document **before** installing the populated index, or an RPC in between could adopt a node and save through a missing document. Today's behaviour (empty index → "not found") is preserved |
 | **Domain logic lives in `cuemsutils`** | No ad-hoc reimplementation | **PASS.** `refresh`'s orchestration stays in the library; this feature removes a construction, not logic |
@@ -89,7 +90,8 @@ specs/002-public-network-map-path/
 │   ├── library-surface.md   # what the daemon may import, and how it obtains a document
 │   └── empty-map-seed.md    # the bytes, the mode, and the write discipline
 ├── checklists/
-│   └── requirements.md  # spec quality checklist (all items pass)
+│   ├── requirements.md          # spec quality checklist (all items pass)
+│   └── hardware-verification.md # T018 — every check needing hardware, incl. 001's T050
 └── tasks.md             # Phase 2 — NOT created by /speckit-plan
 ```
 

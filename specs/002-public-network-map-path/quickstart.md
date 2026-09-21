@@ -85,13 +85,18 @@ The suite characterizes Avahi against mock `ServiceInfo` objects and mocks the R
 cannot show the operator's button working (constitution IV) or a node booting. So record both
 of these explicitly, as performed or not performed:
 
-1. **The operator chain (SC-003-equivalent).** On the controller, adopt and unadopt a node from
+1. **The operator chain (FR-006, constitution IV).** On the controller, adopt and unadopt a node from
    the frontend settings view, and confirm the map on disk changes **immediately**. `NodeIndex.adopt`
    mutates without persisting, so a dropped save looks correct in the UI and is lost on restart.
 2. **A genuine fresh node.** Install on a node whose `/etc/cuems/network_map.xml` is the shipped
    empty conffile, and confirm the daemon starts — no `TypeError`, no restart loop — writes itself
    into the map, and that the map stays `0644` so the `User=cuems` engine can read it.
 
-> **As of 2026-09-21 neither has been performed.** The empty-map boot was verified only in a
-> temporary directory on a development checkout, against `cuemsutils` at `ce5b5b0`. That is
-> evidence for the code path, not for a node.
+> **As of 2026-09-21 neither has been performed**, and both are **deferred by decision**, not
+> forgotten. The empty-map boot was verified only in a temporary directory on a development
+> checkout, against `cuemsutils` at `ce5b5b0` — evidence for the code path, not for a node.
+>
+> **The authoritative list is [checklists/hardware-verification.md](checklists/hardware-verification.md)**
+> (built by T018), which also carries feature 001's outstanding T050 and T051. The two entries
+> above are summarised here for whoever is running this guide; if they ever disagree, the
+> checklist wins — keep the debt in one place.
