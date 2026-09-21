@@ -1,6 +1,6 @@
 # Research — 002 public network-map path
 
-**Phase 0, 2026-09-18 (updated 2026-09-21). Status: ⛔ BLOCKED at R3 — reported upstream, fix pending** — a defect that the merge candidate carries
+**Phase 0, 2026-09-18 (updated 2026-09-21). Status: ✅ UNBLOCKED — R3 fixed upstream and verified here** — a defect that the merge candidate carries
 regardless of this feature, and that makes option A's seed unloadable. Phase 1 has not
 been started. Everything below was measured, not inferred. Measured against cuems-nodeconf
 `d548e7c`/`3e526e1`, cuems-utils `9e5e79f`, and cuems-common `f2fc0f5`
@@ -68,7 +68,16 @@ empty map against the XSD only; no cuems-utils test loads an empty `node_list` t
 
 **Consequence for 002:** option A's seed *is* this map, so as specified it cannot be loaded.
 
-> **✅ REPORTED AND DECIDED, 2026-09-21.** Option 1 chosen. Report and checklist (T085-T090) filed at
+> **✅ RESOLVED, 2026-09-21 — verified against the fixed library, no monkeypatch.** `cuems-utils` `e363d03`
+> makes `get_node` raise `ValueError` for all three empty shapes, message unchanged, inside `0.1.0rc16`
+> (`ce5b5b0` adds the records; their T085-T090 are `[X]`). Verified here: their
+> `tests/contract/test_empty_node_list.py` is 9/9 green and **5 failed against the pre-fix file**, so it is
+> genuinely failing-first; the fresh-node sequence now completes with the real library — read the shipped
+> empty map (0 nodes) → write this node → re-read (1 node); this repository's gate is 95 + 15 green. **No
+> nodeconf code changed**: `except ValueError` was already right. Pins unmoved, candidate not re-cut. Their
+> answer is vendored at `specs/planning/04b-cuems-nodeconf-empty-node-list.md`.
+>
+> Option 1 chosen. Report and checklist (T085-T090) filed at
 > `../cuems-utils/specs/010-consumer-migration/empty-node-list-{report,tasks}.md`, pushed as `230df12`.
 > **The fix ships inside `0.1.0rc16`** (rc16 was never released — tags stop at `v0.1.0rc14`), so **no pin
 > moves here and the merge candidate is not re-cut**; this repository only rebuilds `cuemsutils` from the
@@ -83,6 +92,20 @@ empty map against the XSD only; no cuems-utils test loads an empty `node_list` t
 | **1** | `cuems-utils`: `get_node` treats a missing/empty `node_list` as "not found" → `ValueError`, with a test loading an empty map through `ConfigManager` | **Recommended.** Restores the documented contract at its source (D22, "report, do not patch"). nodeconf's existing catch then covers both fresh-node cases, and option A works unchanged. **Chosen.** It lands inside `0.1.0rc16`, so no floor moves and no re-cut follows (see the note above) |
 | 2 | nodeconf also catches `TypeError` | A consumer-side patch over a library defect, and a broad catch that would also swallow real bugs. Leaves the engine exposed |
 | 3 | cuems-common ships a node again | Reintroduces the placeholder that f78c876 removed for good reason |
+
+## R6 — two things their answer adds for Phase 1
+
+**Their §3 — the gap on this side.** Every fixture map in `tests/fixtures/` contains nodes, so **nothing in
+this suite exercises the boot path a fresh install takes**. That is why this repository missed the defect too.
+Phase 1 should add an empty-map fixture, byte-identical to what `cuems-common` ships, and drive
+`read_network_map` and the first write over it. It also gives option A's seed a direct test.
+
+**Their §4 — an adjacent finding they left alone deliberately.** A document whose root is *entirely* empty
+(`<CuemsNetworkMap/>`, no `node_list` element) decodes to `{}`, so `refresh`/`save` raise `AttributeError`.
+`get_node` answers it correctly either way, so the boot path is unaffected, and **nothing ships that shape**.
+It constrains option A rather than blocking it: the seed must write the shipped `<node_list/>` shape, never a
+bare root. FR-004 already says "the same shape `cuems-common` ships"; R4's `chmod` and this are the two
+things the seeding code must get right.
 
 ## R4 — the seeded file's mode needs an explicit `chmod`
 
