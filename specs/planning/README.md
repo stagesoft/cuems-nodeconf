@@ -58,7 +58,7 @@ Three, all recorded rather than silently fixed:
    `cuems-utils`-only feature. Correcting them is part of the work (C9).
 
 4. **A machine-specific path, left deliberately.** `04a-cuems-nodeconf-public-path.md`'s `Repository:`
-   header names `/disk/Projects/StageLab/cuems-nodeconf` — the author's checkout, absent here. Kept
+   header names the author's own checkout by absolute path, which does not exist here. Kept
    verbatim so the vendored body stays byte-comparable with upstream; this repository's own artefacts
    (`tests/packaging/release-gate-demo.sh`, the evidence files) use relative paths only, because evidence
    has to reproduce on any development machine.
