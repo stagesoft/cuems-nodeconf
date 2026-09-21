@@ -29,6 +29,10 @@ available to the session that implemented the feature, and **neither was perform
 | **SC-003** (T050) | `quickstart.md` §3: drive all six rows of the adopt/unadopt outcome table from the frontend settings view on the controller, including the persistence check that the map on disk changes *immediately* | The RPC shape is a contract with a live Angular component. The suite mocks the dispatch; it cannot show the operator's button working. `NodeIndex.adopt` mutates without persisting, so a dropped save looks correct in the UI and loses state on restart |
 | **SC-006** (T051) | `quickstart.md` §4: with both halves deployed, confirm a controller and a node discover each other; then, deliberately, confirm a half-renamed pair does **not** silently mis-role | Avahi behaviour here is characterized against mock `ServiceInfo` objects. Nothing in the suite exercises real mDNS, D-Bus or multi-node discovery |
 
+> **Both of these now live on one ledger**, together with feature 002's two outstanding checks:
+> `specs/002-public-network-map-path/checklists/hardware-verification.md` (entries 1 and 2 are T050 and
+> T051). Tick them there and here, or in neither place.
+
 The packaging half of §4 (SC-007) **was** performed — see the table above. It is the
 relationship gate, not the discovery gate, and does not stand in for SC-006.
 
