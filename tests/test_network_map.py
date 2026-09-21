@@ -24,6 +24,7 @@ from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
 
 def _nodeconf(map_path=None):
     nodeconf = CuemsNodeConf()
+    nodeconf._document = CuemsNetworkMapType()  # feature 002: start-up loads this document; these tests skip start-up
     nodeconf.network_map = NodeIndex()
     nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
     if map_path is not None:
@@ -239,3 +240,47 @@ class TestReadNetworkMap:
 
         with pytest.raises(ValidationError):
             nodeconf.read_network_map()
+
+
+class TestAnAdoptionIsNotLostToTheNextRefresh:
+    """An operator adoption made between two discovery passes survives (SC-004).
+
+    This guards the seam feature 002 changes. The daemon keeps one document for
+    the life of the process instead of building a fresh one per write, so a
+    refresh that serialised the *document's* idea of the nodes — rather than
+    refilling it from the index first — would silently undo an adoption made
+    since the last pass. The index is the single source of truth
+    (feature 001's guarantee, feature 002 FR-003); this test says so in the one
+    place where a stale document would show.
+
+    It passes before and after the change. That is the point: the guard has to
+    exist before the document starts being kept.
+    """
+
+    def test_an_adoption_between_passes_is_on_disk_after_the_next_pass(self, tmp_path):
+        map_path = str(tmp_path / 'network_map.xml')
+        nodeconf = _nodeconf(map_path)
+        node_uuid = '0367f391-ebf4-48b2-9f26-0000000000aa'
+        nodeconf.listener.nodes['aabbccddeeff'] = Node(
+            uuid=node_uuid,
+            mac='aabbccddeeff',
+            name='aabbccddeeff._cuems_nodeconf._tcp.local.',
+            node_role=NodeRole.node,
+            ip='169.254.1.9',
+            online=True,
+        )
+
+        nodeconf.refresh_network_map()
+        assert nodeconf.network_map['aabbccddeeff']['adopted'] is False
+
+        # The operator adopts through the UI's RPC chain, between passes.
+        assert nodeconf.adopt_node(node_uuid)['OK'] is True
+
+        # The next discovery pass sees exactly what it saw before.
+        nodeconf.refresh_network_map()
+
+        assert nodeconf.network_map['aabbccddeeff']['adopted'] is True
+        written = open(map_path).read()
+        assert re.search(r'<adopted>\s*True\s*</adopted>', written), (
+            'the adoption reached the index but not the map on disk'
+        )

@@ -161,3 +161,24 @@ def cuems_conf_dir(tmp_path, monkeypatch):
         shutil.copy(CUEMS_CONF_FIXTURES / name, tmp_path / name)
     monkeypatch.setenv('CUEMS_CONF_PATH', str(tmp_path))
     return tmp_path
+
+
+@pytest.fixture
+def cuems_conf_dir_empty(tmp_path, monkeypatch):
+    """A private /etc/cuems whose map lists no nodes — a freshly installed node.
+
+    This is what cuems-common actually ships (an empty <node_list/>, since its
+    f78c876 removed the placeholder controller), so it is the map every fresh
+    install boots against. `cuems_conf_dir`'s map is populated, which is why
+    nothing here exercised this path: the daemon crash-looped on it until
+    cuems-utils e363d03, and no fixture in this repository could show it
+    (feature 002, research R6).
+
+    network_map_empty.xml is byte-identical to the shipped file; keep it that
+    way, and keep it the same bytes the daemon seeds.
+    """
+    shutil.copy(CUEMS_CONF_FIXTURES / 'settings.xml', tmp_path / 'settings.xml')
+    shutil.copy(CUEMS_CONF_FIXTURES / 'network_map_empty.xml',
+                tmp_path / 'network_map.xml')
+    monkeypatch.setenv('CUEMS_CONF_PATH', str(tmp_path))
+    return tmp_path

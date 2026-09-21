@@ -14,11 +14,13 @@ from unittest.mock import patch
 import cuemsutils
 from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
+from cuemsutils.config.network_map import CuemsNetworkMapType  # test-only (feature 002, FR-007)
 from cuemsnodeconf.CuemsAvahiListener import CuemsAvahiListener
 
 
 def _master_nodeconf(tmp_path):
     nc = CuemsNodeConf()
+    nc._document = CuemsNetworkMapType()  # feature 002: start-up loads this document; these tests skip start-up
     nc.map_path = str(tmp_path / 'network_map.xml')
     nc.network_map = NodeIndex()
     nc.listener = CuemsAvahiListener(ip='169.254.0.1')

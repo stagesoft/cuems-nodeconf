@@ -14,6 +14,7 @@ class TestNodeAdoption:
     def test_adopt_node_success(self, tmp_path, monkeypatch):
         """Test successfully adopting a node."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()  # feature 002: start-up loads this document; these tests skip start-up
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 
@@ -109,6 +110,7 @@ class TestNodeAdoption:
     def test_unadopt_node_success(self, tmp_path, monkeypatch):
         """Test successfully unadopting a node."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 
@@ -163,6 +165,7 @@ class TestNodeAdoption:
     def test_unadopt_node_offline(self, tmp_path):
         """Test unadopting an offline node (should succeed with warning)."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 
@@ -230,6 +233,7 @@ class TestNodeAdoption:
         written document does not validate against ``network_map.xsd``.
         """
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(cuems_conf_dir / 'network_map.xml')
 
@@ -248,6 +252,7 @@ class TestNodeAdoption:
         assert result['OK'] is True
 
         reread = CuemsNodeConf()
+        reread._document = CuemsNetworkMapType()
         reread.map_path = nodeconf.map_path
         reread.read_network_map()
 

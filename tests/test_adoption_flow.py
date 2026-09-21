@@ -100,6 +100,7 @@ class TestAdoptionFlow:
     def test_adoption_preserves_other_node_data(self, tmp_path):
         """Test that adoption only changes the adopted flag, preserving other data."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()  # feature 002: start-up loads this document; these tests skip start-up
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 
@@ -137,6 +138,7 @@ class TestAdoptionFlow:
     def test_adoption_writes_network_map(self, tmp_path):
         """Test that adoption triggers network map write."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 
@@ -164,6 +166,7 @@ class TestAdoptionFlow:
     def test_adoption_multiple_nodes_only_adopts_target(self, tmp_path):
         """Test that adopting one node doesn't affect others."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 
@@ -200,6 +203,7 @@ class TestAdoptionFlow:
     def test_adoption_after_a_discovery_refresh(self, tmp_path):
         """Test adoption of a node that reached the map through a discovery refresh."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
         nodeconf.listener = MagicMock()

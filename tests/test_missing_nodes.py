@@ -16,6 +16,7 @@ from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
 
 def _nodeconf_with_adopted(uuid, mac, name):
     nodeconf = CuemsNodeConf()
+    nodeconf._document = CuemsNetworkMapType()  # feature 002: start-up loads this document; these tests skip start-up
     nodeconf.network_map = NodeIndex()
     nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
     nodeconf.network_map[mac] = Node(

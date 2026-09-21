@@ -7,6 +7,7 @@ import threading
 import systemd.daemon
 import dbus
 import shutil
+import tempfile
 
 from zeroconf import IPVersion, ServiceInfo, ServiceListener, ServiceBrowser, Zeroconf, ZeroconfServiceTypes
 
@@ -18,7 +19,6 @@ from .CuemsAvahiListener import CuemsAvahiListener
 # rest of the package) uses `node` pervasively as a loop/local variable name.
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole
 from cuemsutils.tools.NodeList import node as Node
-from cuemsutils.config.network_map import CuemsNetworkMapType
 from cuemsutils.tools.ConfigManager import ConfigManager
 from cuemsutils.errors import SchemaError
 
@@ -40,6 +40,23 @@ NODE_INTERFACES_TEMPLATE = 'interfaces.node'
 MASTER_ALIAS='controller.local'
 CONTROLLER_ALIAS='formitgo.local'
 
+# The map written when /etc/cuems/network_map.xml is absent, byte-identical to
+# the conffile cuems-common ships (feature 002, FR-004). Seeding it gives the
+# daemon one load path instead of a second, document-less branch.
+#
+# <node_list/> is required, not decorative: a bare <CuemsNetworkMap/> root
+# decodes to {} and makes the library's refresh/save raise (reported by
+# cuems-utils, deliberately unfixed there because nothing ships that shape).
+# tests/fixtures/etc_cuems/network_map_empty.xml is the same bytes; if either
+# moves, the other must move with it.
+EMPTY_NETWORK_MAP = (
+    b"<?xml version='1.0' encoding='utf-8'?>\n"
+    b'<cms:CuemsNetworkMap xmlns:cms="https://stagelab.coop/cuems/"\n'
+    b'    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'
+    b'    <node_list/>\n'
+    b'</cms:CuemsNetworkMap>\n'
+)
+
 
 class CuemsNodeConf():
 
@@ -47,6 +64,12 @@ class CuemsNodeConf():
         self.xsd_path = os.path.join( CUEMS_CONF_PATH, MAP_SCHEMA_FILE)
         self.map_path = os.path.join( CUEMS_CONF_PATH, MAP_FILE)
         self.network_map = NodeIndex()
+        # The network-map document, obtained from ConfigManager at start-up and
+        # kept for the life of the process (feature 002, FR-002). The daemon
+        # never constructs one: that would mean naming the library's internal
+        # class, which is the import this feature removed. None until
+        # read_network_map() has run — see _network_map_document().
+        self._document = None
 
         self.services = ['_cuems_nodeconf._tcp.local.']
 
@@ -177,12 +200,16 @@ class CuemsNodeConf():
             sys.exit(-1)
 
         self.is_first_run = not os.path.isfile(self.map_path)
-        if not self.is_first_run:
-            Logger.debug('Reading existing network_map.xml')
-            self.read_network_map()
+        if self.is_first_run:
+            # No map to read: write the one cuems-common ships and read that,
+            # so both cases go through read_network_map and the daemon always
+            # holds a document (feature 002, FR-004). The seeded map lists no
+            # node, which read_network_map already tolerates.
+            Logger.debug('No existing network_map.xml found, seeding an empty one')
+            self._seed_empty_map()
         else:
-            Logger.debug('No existing network_map.xml found, starting fresh')
-            self.network_map = NodeIndex()
+            Logger.debug('Reading existing network_map.xml')
+        self.read_network_map()
 
         self.zeroconf = Zeroconf(interfaces=[self.ip],ip_version=IPVersion.V4Only)
 
@@ -288,8 +315,59 @@ class CuemsNodeConf():
             Logger.debug('All adopted nodes are present')
 
     def _network_map_document(self):
-        """The persisted form of self.network_map, built fresh from the index."""
-        return CuemsNetworkMapType(node_list=[{"node": n} for n in self.network_map.values()])
+        """The persisted form of self.network_map: the kept document, refilled.
+
+        The document comes from ConfigManager at start-up and is kept for the
+        life of the process; the daemon never constructs one, which is what
+        keeps cuemsutils.config out of this package (feature 002, FR-001/FR-002).
+
+        node_list is overwritten in full on every call, so the index stays the
+        single in-memory source of truth (FR-003) and the kept document cannot
+        go stale against it — an operator adoption made between two discovery
+        passes is carried into the next write, not overwritten by it.
+        """
+        if self._document is None:
+            raise RuntimeError(
+                'network map document not loaded: read_network_map() must run '
+                'before the map is saved or refreshed'
+            )
+        self._document["node_list"] = [{"node": n} for n in self.network_map.values()]
+        return self._document
+
+    def _seed_empty_map(self):
+        """Write the empty network map cuems-common ships, so a document exists.
+
+        Reached only when the map file is absent: on a packaged host
+        cuems-common ships it as a conffile, so this is a development checkout
+        or a host where it was deleted by hand.
+
+        Written atomically — a partial map is what the next boot would load and
+        fail to validate (constitution II) — and chmod 0644 explicitly, because
+        this daemon runs as root while the engines read the map as User=cuems,
+        and a plain create is 0600 under a restrictive umask (constitution I).
+        """
+        directory = os.path.dirname(self.map_path) or '.'
+        try:
+            handle, temporary = tempfile.mkstemp(
+                dir=directory, prefix=f'.{os.path.basename(self.map_path)}.', suffix='.tmp'
+            )
+            try:
+                with os.fdopen(handle, 'wb') as seed:
+                    seed.write(EMPTY_NETWORK_MAP)
+                os.chmod(temporary, 0o644)
+                os.replace(temporary, self.map_path)
+            except BaseException:
+                try:
+                    os.unlink(temporary)
+                except OSError:
+                    pass
+                raise
+        except OSError as e:
+            # Carrying on would mean running with a map that can never be
+            # saved: the first adoption would be lost with nothing said.
+            Logger.critical(f'Could not create {self.map_path}: {e}')
+            sys.exit(-1)
+        Logger.info(f'No network map found; wrote an empty one at {self.map_path}')
 
     @staticmethod
     def _index_from_document(document):
@@ -541,6 +619,11 @@ class CuemsNodeConf():
             if not hasattr(manager, 'network_map'):
                 raise
             Logger.info('This node is not in network_map.xml yet; discovery will add it')
+        # Keep the document BEFORE installing the index, not after. set_comms()
+        # starts the IPC listener before run(), so an adopt arriving between
+        # these two lines would mutate a populated index and then try to save
+        # through a document that is not there yet (constitution VI).
+        self._document = manager.network_map
         self.network_map = self._index_from_document(manager.network_map)
 
         Logger.debug("---")

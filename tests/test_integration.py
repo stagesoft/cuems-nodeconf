@@ -83,6 +83,7 @@ class TestIntegrationScenarios:
     def test_node_adoption_workflow(self, tmp_path):
         """Test complete node adoption workflow."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()  # feature 002: start-up loads this document; these tests skip start-up
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 
@@ -112,6 +113,7 @@ class TestIntegrationScenarios:
     def test_controller_node_network_merge(self):
         """Test merging network map with controller and node."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()
         nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
 
@@ -146,6 +148,7 @@ class TestIntegrationScenarios:
     def test_large_network_with_multiple_nodes(self):
         """Test network with controller and multiple plain nodes."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()  # Ensure fresh network map
         nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
         nodeconf.listener.nodes = NodeIndex()  # Ensure fresh listener nodes
@@ -217,6 +220,7 @@ class TestIntegrationScenarios:
     def test_network_with_mixed_node_roles(self):
         """Test network with controller, nodes, and a firstrun node."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()  # Ensure fresh network map
         nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
         nodeconf.listener.nodes = NodeIndex()  # Ensure fresh listener nodes
@@ -288,6 +292,7 @@ class TestIntegrationScenarios:
     def test_network_with_nodes_going_offline(self):
         """Test network where some nodes go offline."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()  # Ensure fresh network map
         nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
         nodeconf.listener.nodes = NodeIndex()  # Ensure fresh listener nodes
@@ -350,6 +355,7 @@ class TestIntegrationScenarios:
     def test_adopting_multiple_nodes_in_sequence(self, tmp_path):
         """Test adopting multiple nodes one after another."""
         nodeconf = CuemsNodeConf()
+        nodeconf._document = CuemsNetworkMapType()
         nodeconf.network_map = NodeIndex()  # Ensure fresh network map
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
         nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')

@@ -190,6 +190,7 @@ class TestTheOperatorsOutcomeTable:
     def _nodeconf(self):
         nodeconf = CuemsNodeConf()
         nodeconf.network_map = NodeIndex()
+        nodeconf._document = CuemsNetworkMapType()  # feature 002: start-up loads this document; these tests skip start-up
         for mac, uuid, role, adopted, online in (
             ('controllermac', 'controller-uuid', NodeRole.controller, True, True),
             ('onlinemac1234', 'online-uuid', NodeRole.node, False, True),
