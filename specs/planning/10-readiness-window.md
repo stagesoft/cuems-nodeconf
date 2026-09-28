@@ -352,3 +352,93 @@ on 2026-09-28 against `2e2ae40`; re-measure before relying on them.
 real mDNS, D-Bus, systemd or multi-node discovery — which is exactly why criteria 5 and 7 exist.
 
 **Commits are GPG-signed.** On `gpg failed to sign`, retry — never `--no-gpg-sign`.
+
+---
+
+## 9. Inputs from `cuems-utils` features 010 and 011 (added 2026-09-28)
+
+**Added from the `cuems-utils` side**, so that `/speckit.specify` for `003-startup-readiness` sees
+every requirement that lands on this daemon's start-up sequence in one place. Measured against
+`cuems-utils` `011-etc-cuems-first-install` (local branch, rebased onto `feat/xml-refactor` `0ba239b`)
+and this repository at `a4ee51b`. Items marked **pending** await the maintainer's answer to the
+decisions listed at the end; everything else is recorded fact.
+
+### 9.1 From feature 010 — the carried items this feature owns (its `tasks.md` T093–T098)
+
+| 010 task | What this feature must deliver | Status |
+|---|---|---|
+| T093 | this repository's half of the aliasing contract (links 1 and 2) | **done** — `tests/test_node_aliasing.py`, `2e2ae40` |
+| T094 | C2: the readiness flag and the distinguishable refusal (§1–§3 above) | open — **this feature's core** |
+| T095 | the `cf5c4ad` readiness-contract gap recorded (their guide) | theirs; input to §3's decision |
+| T096 | flows 01/02 did not compensate for the wrong string | gate on the engine/editor flows; this feature's spec restates the two prohibitions |
+| T097 | `CLAUDE.md`'s `<online>` cadence | **done** — `2e2ae40` |
+| T098 | why the cadence line is a release item (their guide) | theirs |
+| T025 | the **over-the-wire** discovery check, two hosts | in this repository's hardware ledger, `specs/002-public-network-map-path/checklists/hardware-verification.md` §2 — still "Not performed" |
+
+### 9.2 From feature 011 — the Avahi record becomes this daemon's, derived from `settings.xml`
+
+`cuems-utils` feature 011 (`/etc/cuems` first install) decided on 2026-09-28, with the maintainer,
+that **`cuems-nodeconf` is the sole writer of `/etc/avahi/services/cuems.service` and derives it from
+`/etc/cuems/settings.xml`** (its research R7, shape B of R7a; contract
+`specs/011-etc-cuems-first-install/contracts/cuems-common-handover.md` §4a). The measured reasons:
+
+- Today this daemon copies `/usr/share/cuems/cuems.service.<role>` verbatim, and **learns its own
+  uuid from its own announcement** (`retreive_local_node` matches by IP and trusts the TXT `uuid=`).
+  So the identity flow runs template → Avahi → nodeconf → map, the reverse of the identity contract,
+  and a template that disagrees with `settings.xml` produces the duplicate self that never merges.
+- The templates are `cuems-common` package content: every upgrade resets them. They currently carry a
+  **production controller's uuid** (`a3811d78-…`), so an unmodified copy announces a real node's identity.
+- `cuems-config-node` in `cuems-common` mints its own `uuid1()` — a second minter. 011's handover
+  strips it; the templates ship with the sentinel `00000000-0000-0000-0000-000000000000`; the dead
+  `sudo cp` rules are retired. `cuems-init-node` (new, `cuems-utils`) becomes the only minter and
+  writes `settings.xml`, `network_map.xml` (this node's row) and `default_mappings.xml` at install.
+
+**What this daemon must do** (delivered by *this* feature — **pending D1** — since it is the same
+start-up sequence, the same packaged file and the same re-cut):
+
+1. At start, **before `set_comms()`**: read `uuid`/`mac` from `settings.xml` through the
+   `ConfigManager` it already constructs; render the role template into the live record by literal
+   substitution of the 36-character sentinel token; write atomically; reload `avahi-daemon` only if
+   the bytes changed. Rendering before `set_comms()` matters because of §3: a refusal *after* the
+   socket exists reads as "available" to the engine's probe.
+2. **Refuse to start** when `settings.xml` is absent or carries the sentinel — log `NOT PROVISIONED`
+   (the wording `cuems-init-node --check` uses), exit non-zero, announce nothing, create no socket.
+3. Render the same way at every role change (the three template-copy sites:
+   `_install_master_service_template`, the node branch of `set_node_role`, the resume path).
+4. After discovery, assert the discovered self carries the `settings.xml` uuid; refuse loudly
+   otherwise (this repository's own plan `09-self-node-seeding.md` §4 asked for this guard).
+5. Seed this node's row through the library primitive **`NodeIndex.ensure(node)`** — added by 011
+   inside `0.1.0rc16` (**pending D2**), inserting the caller's dict **by reference** per the aliasing
+   contract — instead of a daemon-side insert (plan 09 §5 option 1; D22). `_seed_empty_map()` stays
+   as the fallback for a map that is absent altogether.
+6. Consequences 011 records for operators: after `cuems-init-node --force-new-identity` (and after
+   feature 012's re-mint) the fix is **restart `cuems-nodeconf`**; `cuems-init-node --check` reads the
+   live record and exits 1 while it disagrees, 3 while the source is the sentinel.
+
+**Transition**: the mutual `Breaks` already exist (`cuems-common 1.3.0-23` ↔ `cuems-nodeconf 0.1.0-8`);
+no version moves. Inside `0.1.0-8` the version cannot tell a pre-render build from a post-render one
+(the T090 caveat) — harmless because nothing ships before the coordinated tag.
+
+**Hardware verification** (011 step 6a, FR-045): unmask, enable and start this daemon on every fleet
+node — it is masked at Medina and off elsewhere, and under this design the Avahi record is unmaintained
+until it runs — then `cuems-init-node --check` exit 0, again after a reboot, and a second node sees this
+one exactly once with the `settings.xml` uuid. **Pending D3**: recorded as entry §5 of this repository's
+hardware-verification ledger rather than as a second list in `cuems-utils`.
+
+### 9.3 Packaging — one re-cut, announced once
+
+Both §1's readiness flag and §9.2's render change `cuemsnodeconf/CuemsNodeConf.py`, packaged content.
+Landing them in one feature means **one** re-cut of `6c0cca7` and one announcement (§4), inside the
+unreleased `0.1.0-8` entry. `cuems-common`'s `3af31cc` is re-cut by 011's handover at the same time.
+
+### 9.4 Decisions pending the maintainer (asked 2026-09-28)
+
+| | Question | Recommendation |
+|---|---|---|
+| D1 | Does §9.2's render/refuse/guard work fold into `003-startup-readiness`, or stay a separate item? | **Fold**: one start-up sequence, one re-cut, one hardware verification |
+| D2 | `NodeIndex.ensure` added in `cuems-utils` (011, inside rc16) and consumed here, rather than a daemon-side insert? | **Yes** — plan 09 option 1; init-node needs it regardless |
+| D3 | The unmask/enable/start hardware task lives in this repository's ledger (§5) with 011 pointing at it? | **Yes** — one ledger for every hardware-only check on a node |
+
+Once answered, the `/speckit.specify` prompt for `003-startup-readiness` should carry §1–§3, §7's
+exit criteria, and §9.2's six items as one scope, with §3's four-tier decision and §5.3's triage as
+the clarifications to force.
