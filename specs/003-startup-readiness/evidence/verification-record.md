@@ -62,7 +62,54 @@ at every step; the guard waits out a stale record; the pre-flight never exits). 
   **firstrun** templates but still the production uuid in **controller**; on such a host the render
   refuses for a controller until the 011 handover lands there. The package `Breaks` and the
   coordinated re-cut are what make both sides true at once.
+  **Resolved in the tree, 2026-09-28** (same day, after this record was first written): the handover
+  landed on `../cuems-common`'s `feat/xml-refactor` as `b3dd7e1`, `f6750d7`, `e3c9430`, and all three
+  `usr/share/cuems/cuems.service.*` templates now carry
+  `00000000-0000-0000-0000-000000000000` — verified by reading the file, not taken on report. What
+  is still outstanding is that repository's **tag**; see the candidate section below.
 - `/tmp/nodeconf.ipc` survives a daemon that exits during start-up; the engine's existence probe then
   sees a socket with nobody listening. Pre-existing, engine-side, recorded in the readiness contract.
 - The constitution's testing gate still reads "16 test files, currently 81 tests" against a suite of
   173 in 24 files. Governance text changes by its own explicit update, not as a side effect of a feature.
+
+## The candidate — T048, recorded 2026-09-28
+
+**Re-cut and pushed by the maintainer.** T048 is maintainer-only (FR-021, research R10); what is
+below is the record it asks for, compiled from repository state — documentation, not a tag
+operation.
+
+| | |
+|---|---|
+| Previous candidate | `6c0cca7` (features 001 and 002) |
+| **This candidate** | **`b305c1c`** — `feat/xml-refactor`'s head, the commit that brought feature 003 in |
+| Tag object | `5f0b64a`, annotated and **signed** (SSH). `git ls-remote --tags origin` returns the same object, so it is **pushed** |
+| Why it moved | Feature 003 changes packaged content — `cuemsnodeconf/CuemsNodeConf.py`, plus two bullets in the unreleased `0.1.0-8` changelog entry. By the shared convention the tag advances only for that |
+| Version | **unchanged**: `0.1.0-8`, still `UNRELEASED` |
+
+**Counterparts, measured the same day.** The convention is one tag name across every consumer
+repository, so a technician checks out the set rather than a single repo:
+
+| Repository | Head | Tag | State |
+|---|---|---|---|
+| `cuems-common` | `e3c9430` | `3af31cc` | **3 packaged commits behind** — the 011 handover. Re-cut to `e3c9430` **due** |
+| `cuems-power-bridge` | `13a9af4` | `d5c4226` | **2 packaged commits behind** (`ca67a99`, `13a9af4`). Re-cut **due** |
+| `cuems-utils` | `1a4e608` | — | no tag, by decision D27 — it tags after its features 011–014 |
+
+**This is more than a stale coordinate.** This candidate's `_render_service_record` calls
+`sys.exit(-1)` on a template carrying no sentinel. `cuems-common`'s **tagged** tree at `3af31cc`
+still ships the production uuid in `cuems.service.controller`. So until that tag moves the two
+candidates **do not compose**: a controller built from the pair has a `cuems-nodeconf` that refuses
+to start. Both working trees are already correct; only the tag is behind. This is exactly the
+counterpart check the convention exists for, and the reason a re-cut is announced rather than made
+quietly.
+
+**Announced to** — `cuems-common`'s `specs/001-node-role-and-conversion-ordering/tasks.md` T019
+(the live merge gate, which cited `6c0cca7`); `cuems-power-bridge`'s
+`specs/002-cluster-poweroff-cli/evidence/candidate.md` (the technician's tag sheet); and
+`cuems-utils`'s `specs/011-etc-cuems-first-install/baseline.md` §"UX pass and announcements" (its
+T080) plus its 010 flow tables.
+
+**One correction still owed on the tag itself**: `b305c1c`'s message body names *"cuems-common's
+tag of the same name at `f2fc0f5`"* — two relocations stale — while its own closing paragraph says
+`3af31cc`. The message contradicts itself. Amending it to name `e3c9430` belongs to the same
+maintainer pass as `cuems-common`'s re-cut.
