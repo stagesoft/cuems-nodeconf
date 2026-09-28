@@ -81,6 +81,34 @@ packaged host installed.
 
 ---
 
+## 5. Feature 003 / `cuems-utils` 011 — unmask, enable and start `cuems-nodeconf` on every node (added 2026-09-28)
+
+- [ ] **Not performed.**
+
+**Why it is here.** `cuems-utils` feature 011 makes this daemon the sole writer of
+`/etc/avahi/services/cuems.service`, derived from `/etc/cuems/settings.xml` at every start (its
+research R7, shape B; §9.2 of `specs/planning/10-readiness-window.md`). Until the daemon runs, the
+record is unmaintained by design, and `cuems-init-node --check` exits **1** (Avahi absent or stale).
+The daemon is masked at Medina and off elsewhere; unmasking it fleet-wide is part of the same
+coordinated landing, and only real hardware shows avahi on a real interface, discovery by a second
+node, and a reboot. Recorded here rather than in `cuems-utils` by decision D3 (2026-09-28): one ledger
+for every hardware-only check on a node.
+
+**Per node class (controller, node), on real hardware:**
+
+1. `apt install cuems-utils cuems-common cuems-nodeconf` (or the upgrade), no hand-placed file.
+2. `cuems-init-node --check` → exit 1 with the Avahi line "absent" is the expected state while the
+   unit is still masked; exit 3 is impossible after a package install.
+3. `systemctl unmask cuems-nodeconf.service && systemctl enable --now cuems-nodeconf.service`.
+4. `journalctl -u cuems-nodeconf -b` shows the record rendered from `settings.xml`, no `NOT PROVISIONED`.
+5. `cuems-init-node --check` → exit **0**; both Avahi records equal the source uuid.
+6. From another node, `avahi-browse -rtp _cuems_nodeconf._tcp` lists this node **once**, with that uuid.
+7. `/usr/lib/cuems/bin/python -c 'from cuemsutils.tools.ConfigManager import ConfigManager; ConfigManager(load_all=True)'` succeeds.
+8. Reboot; steps 5–7 hold again.
+
+**Record**: date, host, node class, the `--check` output before and after, and the `avahi-browse`
+line from the second node.
+
 ## Related records
 
 - Feature 002's [evidence/verification-record.md](../evidence/verification-record.md) — what *was* verified.
