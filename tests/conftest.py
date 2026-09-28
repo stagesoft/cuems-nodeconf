@@ -182,3 +182,43 @@ def cuems_conf_dir_empty(tmp_path, monkeypatch):
                 tmp_path / 'network_map.xml')
     monkeypatch.setenv('CUEMS_CONF_PATH', str(tmp_path))
     return tmp_path
+
+
+AVAHI_FIXTURES = Path(__file__).parent / 'fixtures' / 'avahi'
+
+
+@pytest.fixture
+def avahi_dirs(tmp_path, monkeypatch):
+    """A private /usr/share/cuems and /etc/avahi/services for one test.
+
+    Feature 003 makes the daemon the sole writer of the mDNS service record,
+    rendered from the templates cuems-common ships. This copies the sentinel-
+    carrying template fixtures (tests/fixtures/avahi/, see its README) into
+    tmp_path/'share', creates an empty tmp_path/'services', and points the
+    daemon's TEMPLATES_PATH and AVAHI_SERVICES_PATH at them, so no test reaches
+    the real /usr/share/cuems or /etc/avahi. Returns (share, services).
+    """
+    import cuemsnodeconf.CuemsNodeConf as daemon_module
+    share = tmp_path / 'share'
+    services = tmp_path / 'services'
+    share.mkdir()
+    services.mkdir()
+    for role in ('controller', 'node', 'firstrun'):
+        shutil.copy(AVAHI_FIXTURES / f'cuems.service.{role}', share / f'cuems.service.{role}')
+    monkeypatch.setattr(daemon_module, 'TEMPLATES_PATH', str(share) + '/')
+    monkeypatch.setattr(daemon_module, 'AVAHI_SERVICES_PATH', str(services) + '/')
+    return share, services
+
+
+@pytest.fixture
+def cuems_conf_dir_sentinel(tmp_path, monkeypatch):
+    """A private /etc/cuems whose settings.xml carries the sentinel identity.
+
+    The unprovisioned shape cuems-utils 011 ships before cuems-init-node runs.
+    A daemon reading it must refuse to start (feature 003, FR-011). The map
+    beside it is the populated fixture; it is never reached.
+    """
+    shutil.copy(CUEMS_CONF_FIXTURES / 'settings_sentinel.xml', tmp_path / 'settings.xml')
+    shutil.copy(CUEMS_CONF_FIXTURES / 'network_map.xml', tmp_path / 'network_map.xml')
+    monkeypatch.setenv('CUEMS_CONF_PATH', str(tmp_path))
+    return tmp_path

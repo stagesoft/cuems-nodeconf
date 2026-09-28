@@ -14,6 +14,7 @@ class TestEngineCallback:
     def test_engine_callback_adopt_node(self, tmp_path, monkeypatch):
         """Test engine callback for adopting a node."""
         nodeconf = CuemsNodeConf()
+        nodeconf._ready = True  # feature 003: these tests skip start-up, which is what sets readiness
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 
@@ -53,6 +54,7 @@ class TestEngineCallback:
     def test_engine_callback_unadopt_node(self, tmp_path, monkeypatch):
         """Test engine callback for unadopting a node."""
         nodeconf = CuemsNodeConf()
+        nodeconf._ready = True  # feature 003: these tests skip start-up, which is what sets readiness
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 
@@ -78,6 +80,7 @@ class TestEngineCallback:
     def test_engine_callback_invalid_action(self):
         """Test engine callback with invalid modify_action."""
         nodeconf = CuemsNodeConf()
+        nodeconf._ready = True  # feature 003: these tests skip start-up, which is what sets readiness
         
         # Create mock context and thread
         mock_context = MagicMock()
@@ -103,6 +106,7 @@ class TestEngineCallback:
     def test_engine_callback_exception_handling(self):
         """Test that exceptions in engine_callback are handled gracefully."""
         nodeconf = CuemsNodeConf()
+        nodeconf._ready = True  # feature 003: these tests skip start-up, which is what sets readiness
         
         # Create mock context and thread
         mock_context = MagicMock()
@@ -139,6 +143,7 @@ class TestEveryRequestGetsAnAnswer:
 
     def _nodeconf(self):
         nodeconf = CuemsNodeConf()
+        nodeconf._ready = True  # feature 003: these tests skip start-up, which is what sets readiness
         nodeconf.network_map = NodeIndex()
         nodeconf.communications_thread = MagicMock()
         nodeconf.communications_thread.event_loop = MagicMock()
@@ -189,6 +194,7 @@ class TestTheOperatorsOutcomeTable:
 
     def _nodeconf(self):
         nodeconf = CuemsNodeConf()
+        nodeconf._ready = True  # feature 003: these tests skip start-up, which is what sets readiness
         nodeconf.network_map = NodeIndex()
         nodeconf._document = CuemsNetworkMapType()  # feature 002: start-up loads this document; these tests skip start-up
         for mac, uuid, role, adopted, online in (

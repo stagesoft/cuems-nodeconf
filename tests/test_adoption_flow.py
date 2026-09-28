@@ -17,6 +17,7 @@ class TestAdoptionFlow:
     def test_complete_adoption_flow(self, tmp_path):
         """Test the complete adoption flow from engine callback to network map write."""
         nodeconf = CuemsNodeConf()
+        nodeconf._ready = True  # feature 003: these tests skip start-up, which is what sets readiness
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 
@@ -71,6 +72,7 @@ class TestAdoptionFlow:
     def test_adoption_flow_node_not_found(self, tmp_path):
         """Test adoption flow when node is not found."""
         nodeconf = CuemsNodeConf()
+        nodeconf._ready = True  # feature 003: these tests skip start-up, which is what sets readiness
         nodeconf.network_map = NodeIndex()
         nodeconf.map_path = str(tmp_path / 'network_map.xml')
 

@@ -33,6 +33,7 @@ class TestServiceDiscovery:
         """Test retrieving local node from discovered nodes."""
         nodeconf = CuemsNodeConf()
         nodeconf.ip = '169.254.1.1'
+        nodeconf.settings_uuid = 'local-uuid'  # feature 003: the lookup also matches the provisioned uuid
         nodeconf.listener = CuemsAvahiListener(ip='169.254.1.1')
         nodeconf.listener.nodes = NodeIndex()  # Reset nodes
 

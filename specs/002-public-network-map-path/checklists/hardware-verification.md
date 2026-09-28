@@ -109,6 +109,34 @@ for every hardware-only check on a node.
 **Record**: date, host, node class, the `--check` output before and after, and the `avahi-browse`
 line from the second node.
 
+## 6. Feature 003 — the start-up refusal on the real dispatch path (added 2026-09-28)
+
+- [ ] **Not performed.**
+
+**Why it is here.** Feature 003 makes the daemon answer *nodeconf is still starting up* to any adopt
+or unadopt that arrives between its socket being bound and its map being loaded, instead of the
+false *Node … not found*. The tests exercise that window (`tests/test_startup_readiness.py`), but
+constitution IV rules them out as evidence that the operator's button works: the chain
+`cuems-frontend` → `cuems-editor` → `cuems-engine` → this daemon has to be driven from the settings
+page on a controller. Decision D (2026-09-28) means the consumers relay the string verbatim, so the
+page must show it as-is.
+
+**On a controller with the operator UI, this daemon enabled:**
+
+1. `systemctl restart cuems-nodeconf.service` and, within the first few seconds (the interface wait,
+   default 10 s), click "add node" for a node that is present and adoptable on the settings page.
+2. Expected: the page shows an error reading *nodeconf is still starting up*. **Never** *Node … not
+   found*, and never *not running / enable it* (that would mean the socket did not exist yet: retry
+   the click, it is still a valid outcome of the race but not the one this entry checks).
+3. Wait for `systemctl status cuems-nodeconf` to report active and `journalctl -u cuems-nodeconf -b`
+   to show the first discovery pass; click "add node" again → adopted, and the node's `<adopted>`
+   flips in `/etc/cuems/network_map.xml`.
+4. `journalctl -u cuems-nodeconf -b` shows the pre-flight lines and one
+   `nodeconf is still starting up; refusing ADD for <uuid>` line for the first click.
+
+**Record**: date, host, the daemon's version, the text the page showed for the first click, and the
+journal lines from step 4.
+
 ## Related records
 
 - Feature 002's [evidence/verification-record.md](../evidence/verification-record.md) — what *was* verified.

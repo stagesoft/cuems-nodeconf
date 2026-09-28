@@ -36,7 +36,7 @@ class TestIntegrationScenarios:
         nodeconf.node = local_node
 
         # Mock all external operations
-        with patch('shutil.copy2'), \
+        with patch.object(CuemsNodeConf, '_render_service_record', return_value=False), \
              patch.object(nodeconf, 'change_network_to_master', return_value=True), \
              patch.object(nodeconf, 'get_ips'), \
              patch.object(nodeconf, 'update_master_lock_file'), \

@@ -8,6 +8,7 @@ import systemd.daemon
 import dbus
 import shutil
 import tempfile
+import re
 
 from zeroconf import IPVersion, ServiceInfo, ServiceListener, ServiceBrowser, Zeroconf, ZeroconfServiceTypes
 
@@ -33,6 +34,26 @@ MAP_SCHEMA_FILE = 'network_map.xsd'
 MAP_FILE = 'network_map.xml'
 TEMPLATES_PATH = '/usr/share/cuems/'
 CUEMS_SERVICE_FILE = 'cuems.service'
+# Where avahi-daemon reads static service records. This daemon is the sole
+# writer of AVAHI_SERVICES_PATH + CUEMS_SERVICE_FILE (feature 003; cuems-utils
+# 011 handover contract §4a).
+AVAHI_SERVICES_PATH = '/etc/avahi/services/'
+# The "not provisioned" identity. cuems-common ships the service templates
+# with this uuid; cuems-init-node replaces it in settings.xml on a live node;
+# this daemon renders the template over it and refuses to announce it. The
+# library defines the same values in an internal module (cuemsutils.xml.
+# seed_values), which the public-paths rule keeps this package from
+# importing, so they are pinned here and by test (feature 003, research R3).
+SENTINEL_UUID = '00000000-0000-0000-0000-000000000000'
+SENTINEL_MAC = '000000000000'
+# Start-up waits, overridable through the unit's environment (a systemd
+# drop-in). The interface wait bounds the readiness window of feature 003;
+# the controller pause is the moment slaves get to appear before the first
+# discovery pass. Both keep their historical values as defaults.
+IFACE_TIMEOUT_ENV = 'CUEMS_NODECONF_IFACE_TIMEOUT'
+IFACE_TIMEOUT_DEFAULT = 10
+CONTROLLER_PAUSE_ENV = 'CUEMS_NODECONF_CONTROLLER_PAUSE'
+CONTROLLER_PAUSE_DEFAULT = 5
 CUEMS_MASTER_LOCK_FILE = 'master.lock'
 CONTROLLER_INTERFACES_TEMPLATE = 'interfaces.master'
 NODE_INTERFACES_TEMPLATE = 'interfaces.node'
@@ -70,6 +91,14 @@ class CuemsNodeConf():
         # class, which is the import this feature removed. None until
         # read_network_map() has run — see _network_map_document().
         self._document = None
+        # Feature 003: set_comms() binds /tmp/nodeconf.ipc BEFORE run() loads
+        # the map, so an adopt can arrive while network_map is the empty
+        # index above and be answered "Node <uuid> not found" about a node
+        # that is present. Until read_network_map() has installed BOTH the
+        # document and the index, engine_callback answers a distinguishable
+        # refusal instead (contracts/readiness-response.md). Set once; never
+        # reset — a later refresh or role change does not reopen the window.
+        self._ready = False
 
         self.services = ['_cuems_nodeconf._tcp.local.']
 
@@ -96,6 +125,10 @@ class CuemsNodeConf():
         # get_ips() so alias publication can be scoped to the right interface.
         self.cluster_iface = None
         self.ui_iface = None
+        # The provisioned identity, read from settings.xml by _load_identity()
+        # before the socket exists (feature 003). None until then.
+        self.settings_uuid = None
+        self.settings_mac = None
 
     def stop(self):
         """Tear down the daemon cleanly (called from the signal handler)."""
@@ -127,8 +160,204 @@ class CuemsNodeConf():
 
     def start(self):
         Logger.debug('Starting CuemsNodeConf')
+        # Feature 003, contracts/startup-order.md: identity and the mDNS
+        # service record come BEFORE the socket. cuems-engine decides whether
+        # this daemon is available by the existence of /tmp/nodeconf.ipc (its
+        # cf5c4ad), so an unprovisioned refusal must happen while there is no
+        # socket, and the record must be right before anyone can be told we
+        # are up. The start-up render keeps the live record's role; role
+        # decisions happen later, in run().
+        self._preflight()
+        self._load_identity()
+        self._render_service_record(self._live_record_role())
         self.set_comms()
         self.run()
+
+    @staticmethod
+    def _configured_seconds(name, default):
+        """A non-negative integer from the environment, or the default (feature 003, US6)."""
+        raw = os.environ.get(name)
+        if raw is None:
+            return default
+        try:
+            value = int(raw)
+            if value < 0:
+                raise ValueError('negative')
+        except ValueError:
+            Logger.warning(f'{name}={raw!r} is not a non-negative integer; using the default {default}')
+            return default
+        return value
+
+    def _iface_timeout(self):
+        """Seconds get_ips() waits for a usable interface — the readiness window's bound."""
+        return self._configured_seconds(IFACE_TIMEOUT_ENV, IFACE_TIMEOUT_DEFAULT)
+
+    def _controller_pause(self):
+        """Seconds a controller gives slaves to appear before its first discovery pass."""
+        return self._configured_seconds(CONTROLLER_PAUSE_ENV, CONTROLLER_PAUSE_DEFAULT)
+
+    def _preflight(self):
+        """Name a missing system bus or avahi in the journal before anything else fails.
+
+        A diagnostic, never an exit: the unit already declares
+        Requires=avahi-daemon.service and After=avahi-daemon.service, so a
+        new exit path here would only add a way to fail while avahi is still
+        acquiring its D-Bus name (constitution VI). If avahi never serves the
+        record, wait_for_local_service_registration's timeout is the exit,
+        and this line is the reason next to it (feature 003, US6).
+        """
+        try:
+            bus = dbus.SystemBus()
+        except dbus.exceptions.DBusException as e:
+            Logger.error(f'pre-flight: system bus unreachable: {e}')
+            return
+        try:
+            server = dbus.Interface(bus.get_object('org.freedesktop.Avahi', '/'),
+                                    'org.freedesktop.Avahi.Server')
+            version = server.GetVersionString()
+        except dbus.exceptions.DBusException as e:
+            Logger.error(f'pre-flight: avahi-daemon not answering on the system bus: {e}')
+            return
+        Logger.debug(f'pre-flight: system bus reachable, {version}')
+        Logger.info(f'Start-up waits: interface {self._iface_timeout()} s, controller pause {self._controller_pause()} s')
+
+    def _refuse_unprovisioned(self, reason):
+        """Exit before any socket or announcement exists (feature 003, FR-011).
+
+        The leading token is the one `cuems-init-node --check` prints for the
+        same state, so one journal search finds both tools. Under the unit's
+        Restart=on-failure this repeats until the start limit (5 in 33 s) and
+        the unit settles as failed, which is the intended state.
+        """
+        Logger.critical(f'NOT PROVISIONED: {reason}')
+        sys.exit(-1)
+
+    def _load_identity(self):
+        """uuid and MAC from settings.xml, or refuse to start.
+
+        Through the ConfigManager this daemon already constructs; its base
+        class reads settings.xml on construction, so no map is loaded here.
+        The library's distinction between "no config" and "corrupt config"
+        (its FR-014b) is kept after the NOT PROVISIONED token.
+        """
+        conf_dir = os.path.dirname(self.map_path)
+        settings_path = os.path.join(conf_dir, 'settings.xml')
+        try:
+            manager = ConfigManager(config_dir=conf_dir, load_all=False)
+        except FileNotFoundError:
+            self._refuse_unprovisioned(f'{settings_path} is absent')
+        except PermissionError as e:
+            self._refuse_unprovisioned(f'{settings_path} cannot be read: {e}')
+        except SchemaError as e:
+            self._refuse_unprovisioned(f'{settings_path} does not validate: {e}')
+        node_conf = manager.node_conf
+        uuid = str(node_conf['uuid'])
+        mac = str(node_conf['mac'])
+        if uuid == SENTINEL_UUID or mac == SENTINEL_MAC:
+            self._refuse_unprovisioned(
+                f'{settings_path} carries the placeholder identity; run cuems-init-node')
+        self.settings_uuid = uuid
+        self.settings_mac = mac
+        Logger.info(f'Provisioned identity: uuid {uuid}, mac {mac}')
+
+    def _live_record_role(self):
+        """The role the live mDNS service record already declares.
+
+        Used only by the start-up render, which corrects the uuid and must not
+        change the role: role decisions belong to set_node_role and the
+        resume path. firstrun when there is no live record (what provisioning
+        would have placed) or when it carries no recognisable role.
+        """
+        live = os.path.join(AVAHI_SERVICES_PATH, CUEMS_SERVICE_FILE)
+        try:
+            with open(live, 'rb') as record:
+                text = record.read().decode('utf-8', 'replace')
+        except OSError:
+            return NodeRole.firstrun
+        match = re.search(r'node_role=([A-Za-z]+)', text)
+        if match is None:
+            return NodeRole.firstrun
+        try:
+            return NodeRole(match.group(1))
+        except ValueError:
+            Logger.warning(f'Live service record carries unknown node_role {match.group(1)!r}; treating as firstrun')
+            return NodeRole.firstrun
+
+    def _reload_avahi(self):
+        """Ask avahi-daemon to re-read /etc/avahi/services after a rewrite.
+
+        Through the same systemd D-Bus manager the promotion path drives. A
+        failure is logged and swallowed: avahi also watches the directory by
+        inotify, and wait_for_local_service_registration's timeout is the
+        bound if the record is never served.
+        """
+        try:
+            sysbus = dbus.SystemBus()
+            systemd1 = sysbus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1')
+            manager = dbus.Interface(systemd1, 'org.freedesktop.systemd1.Manager')
+            manager.ReloadUnit('avahi-daemon.service', 'fail')
+            Logger.debug('avahi-daemon.service reloaded')
+        except dbus.exceptions.DBusException as e:
+            Logger.error(f'Could not reload avahi-daemon after rewriting the service record: {e}')
+
+    def _render_service_record(self, role):
+        """Render the role's template over the provisioned uuid into the live record.
+
+        Returns whether the bytes changed. Contract:
+        specs/003-startup-readiness/contracts/service-record-render.md.
+
+        - literal substitution of the sentinel; a template with none carries
+          a real identity (a cuems-common older than 1.3.0-23) and is refused
+          rather than announced;
+        - no write and no reload when the live bytes already match;
+        - atomic write, mode 0644 — avahi-daemon reads this as user avahi
+          while this daemon runs as root (constitution I).
+        """
+        source = os.path.join(TEMPLATES_PATH, CUEMS_SERVICE_FILE) + '.' + role.value
+        target = os.path.join(AVAHI_SERVICES_PATH, CUEMS_SERVICE_FILE)
+        try:
+            with open(source, 'rb') as template_file:
+                template = template_file.read()
+        except OSError as e:
+            Logger.critical(f'Service template {source} cannot be read: {e}')
+            sys.exit(-1)
+        if SENTINEL_UUID.encode() not in template:
+            Logger.critical(
+                f'Service template {source} carries no placeholder uuid: it predates '
+                f'cuems-common 1.3.0-23 and would announce a foreign identity; refusing')
+            sys.exit(-1)
+        rendered = template.replace(SENTINEL_UUID.encode(), self.settings_uuid.encode())
+
+        try:
+            with open(target, 'rb') as live:
+                current = live.read()
+        except OSError:
+            current = None
+        if current == rendered:
+            Logger.debug(f'mDNS service record already current for role {role.value}')
+            return False
+
+        directory = os.path.dirname(target) or '.'
+        try:
+            handle, temporary = tempfile.mkstemp(
+                dir=directory, prefix=f'.{CUEMS_SERVICE_FILE}.', suffix='.tmp')
+            try:
+                with os.fdopen(handle, 'wb') as out:
+                    out.write(rendered)
+                os.chmod(temporary, 0o644)
+                os.replace(temporary, target)
+            except BaseException:
+                try:
+                    os.unlink(temporary)
+                except OSError:
+                    pass
+                raise
+        except OSError as e:
+            Logger.critical(f'Could not write {target}: {e}')
+            sys.exit(-1)
+        Logger.info(f'mDNS service record rendered for role {role.value} with uuid {self.settings_uuid}')
+        self._reload_avahi()
+        return True
 
 
     def set_comms(self):
@@ -151,7 +380,22 @@ class CuemsNodeConf():
             if action == 'nodelist_modify':
                 node_uuid = message.get('value')
                 modify_action = message.get('modify_action')
-                
+
+                if not self._ready:
+                    # The start-up window (feature 003, FR-001): the map is
+                    # not loaded yet, so any answer about a node would be a
+                    # guess. Same response shape, a string that cannot be
+                    # read as "the node is absent"; the consumers relay it
+                    # verbatim (decision D). Only this branch is gated.
+                    Logger.info(f'nodeconf is still starting up; refusing {modify_action} for {node_uuid}')
+                    asyncio.run_coroutine_threadsafe(
+                        self.communications_thread.respond_to_engine(
+                            {'OK': False, 'error': 'nodeconf is still starting up'}, context
+                        ),
+                        self.communications_thread.event_loop
+                    )
+                    return
+
                 if modify_action == 'ADD':
                     result = self.adopt_node(node_uuid)
                 elif modify_action == 'REMOVE':
@@ -225,9 +469,13 @@ class CuemsNodeConf():
         
         try:
             self.node = self.retreive_local_node()
-        except TimeoutError:
-            Logger.critical('Could not find local node on the network')
+        except TimeoutError as e:
+            Logger.critical(f'Could not find local node on the network: {e}')
             sys.exit(-1)
+
+        # Feature 003: this node's own row, before the role decision below
+        # (_should_resume_master reads the map by self.node['mac']).
+        self._seed_own_row()
 
         # Check for first run flag in service file
         if self.node['node_role'] == NodeRole.firstrun:
@@ -248,8 +496,9 @@ class CuemsNodeConf():
             Logger.debug(f"Allready configured as {self.node['node_role'].name}")
 
         # If I am master, give slaves a moment to appear before the first pass.
+        # CUEMS_NODECONF_CONTROLLER_PAUSE, default 5 (feature 003, US6).
         if self.node['node_role'] == NodeRole.controller:
-            time.sleep(5)
+            time.sleep(self._controller_pause())
         self.publish_aliases_if_master()
 
         if self.listener.nodes.by_role(NodeRole.firstrun):
@@ -333,6 +582,30 @@ class CuemsNodeConf():
             )
         self._document["node_list"] = [{"node": n} for n in self.network_map.values()]
         return self._document
+
+    def _seed_own_row(self):
+        """Ensure this node's row exists in the index, through the library.
+
+        The listener keys and fills `mac` from the first twelve characters of
+        the service NAME (`get_mac`), which is the hostname — `controller._`
+        for a controller. That is a label, not identity (constitution III);
+        the true MAC is settings.xml's, so it goes onto the record first. The
+        record is then inserted BY REFERENCE through NodeIndex.ensure (cuems-
+        utils 73daab6): the daemon's own record and the map's row are the same
+        object, as adopt/merge/refresh already assume. merge matches by uuid
+        and never clobbers the key, so the row survives every later pass. No
+        daemon-side insert (decision D2; plan 09 §5 option 1).
+
+        Returns whether a row was inserted; False when the map already lists
+        this node, in which case nothing is touched.
+        """
+        self.node['mac'] = self.settings_mac
+        inserted = self.network_map.ensure(self.node)
+        if inserted:
+            Logger.info(f'Seeded this node into the network map: uuid {self.settings_uuid}, mac {self.settings_mac}')
+        else:
+            Logger.debug('This node is already in the network map')
+        return inserted
 
     def _seed_empty_map(self):
         """Write the empty network map cuems-common ships, so a document exists.
@@ -425,7 +698,7 @@ class CuemsNodeConf():
         self.controller_ip = None
         self.cluster_iface = None
         self.ui_iface = None
-        for passed in TimeoutLoop(timeout=10, interval=1):
+        for passed in TimeoutLoop(timeout=self._iface_timeout(), interval=1):
             try:
                 self.ip = netifaces.ifaddresses('bridge0:avahi')[netifaces.AF_INET][0]['addr']
                 self.cluster_iface = 'bridge0'
@@ -478,21 +751,8 @@ class CuemsNodeConf():
         return False
 
     def _install_master_service_template(self):
-        """Copy the master avahi service template into place (idempotent)."""
-        source = os.path.join(TEMPLATES_PATH, CUEMS_SERVICE_FILE) + '.controller'
-        target = os.path.join('/etc/avahi/services/', CUEMS_SERVICE_FILE)
-        try:
-            shutil.copy2(source, target)
-        except FileNotFoundError:
-            Logger.error(f"Controller service template not found at {source}")
-            raise
-        except PermissionError:
-            Logger.error(f"Permission denied copying service template to {target}")
-            raise
-        except Exception as e:
-            Logger.error(f"Error copying master service template: {type(e).__name__}: {e}")
-            Logger.exception(e)
-            raise
+        """Render the controller service record (idempotent; election and resume)."""
+        self._render_service_record(NodeRole.controller)
 
     def set_node_role(self):
         if not self.listener.nodes.controllers:
@@ -514,20 +774,10 @@ class CuemsNodeConf():
             Logger.debug('Master present on the in network WE STAY SLAVE')
             self.node['node_role'] = NodeRole.node
 
-            # Copy slave node service template. nodeconf runs as root, so a
-            # direct copy is correct here — the old `sudo cp` shelled out
-            # needlessly and silently fails when sudo isn't passwordless.
-            source = os.path.join(TEMPLATES_PATH, CUEMS_SERVICE_FILE) + '.node'
-            target = os.path.join('/etc/avahi/services/', CUEMS_SERVICE_FILE)
-            try:
-                shutil.copy2(source, target)
-            except FileNotFoundError:
-                Logger.error(f"Node service template not found at {source}")
-                raise
-            except Exception as e:
-                Logger.error(f"Error copying slave service template: {type(e).__name__}: {e}")
-                Logger.exception(e)
-                raise
+            # Render the node service record from settings.xml (feature 003):
+            # the template is never copied verbatim, so the announced uuid is
+            # always this node's own.
+            self._render_service_record(NodeRole.node)
         
     def _save_network_map(self):
         """Write self.network_map now; a write that fails is owed to the next refresh.
@@ -631,6 +881,10 @@ class CuemsNodeConf():
         for item, value in self.network_map.items():
             Logger.debug(f"{value}")
         Logger.debug("---")
+        # Last, and only here: both halves are installed, so engine_callback
+        # may now answer about nodes (feature 003, FR-002). Anything raised
+        # above leaves the daemon not ready, which is the conservative state.
+        self._ready = True
 
     def callback(self, caller_node=None, action=CuemsAvahiListener.Action.ADD):
         Logger.debug(f" {action} callback!!!, Node: {caller_node} ")
@@ -676,14 +930,33 @@ class CuemsNodeConf():
         raise TimeoutError('Local service registration not detected within timeout period')
 
     def retreive_local_node(self):
+        """The discovered entry that is this node: our IP AND our settings.xml uuid.
+
+        A record at our IP with another uuid is a stale one still being served
+        while avahi reloads, or a foreign template (feature 003, FR-013; plan
+        09 §4). It is waited out, not acted on: exiting on first sight would
+        lose the race against the reload on every boot where the record
+        changed (constitution VI). On timeout the refusal names both uuids.
+        """
+        seen_foreign = None
         for passed in TimeoutLoop(timeout=10, interval=1):
             for node in self.listener.nodes.values():
-                if node.get('ip') == self.ip:
+                if node.get('ip') != self.ip:
+                    continue
+                if node.get('uuid') == self.settings_uuid:
                     return node
+                seen_foreign = node.get('uuid')
+                Logger.warning(
+                    f'A record at {self.ip} carries uuid {seen_foreign}, not settings.xml\'s '
+                    f'{self.settings_uuid}; waiting for avahi to serve the rendered record')
 
             Logger.debug("waiting for local node to appear on the network")
-        
-        # Timeout occurred - TimeoutLoop will raise TimeoutError
+
+        if seen_foreign is not None:
+            raise TimeoutError(
+                f'The record discovered at {self.ip} carries uuid {seen_foreign} but '
+                f'settings.xml says {self.settings_uuid}: restart cuems-nodeconf after '
+                f're-provisioning; cuems-init-node --check shows the disagreement')
         raise TimeoutError('Local node not found within timeout period')
         
 

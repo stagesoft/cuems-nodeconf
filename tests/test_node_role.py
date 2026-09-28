@@ -44,7 +44,7 @@ class TestNodeRoleDetermination:
             ip='169.254.1.1',
         )
 
-        with patch('shutil.copy2'), \
+        with patch.object(CuemsNodeConf, '_render_service_record', return_value=False), \
              patch.object(nodeconf, 'change_network_to_master', return_value=True), \
              patch.object(nodeconf, 'get_ips'):
 
@@ -75,8 +75,7 @@ class TestNodeRoleDetermination:
             ip='169.254.1.1',
         )
 
-        # Node service template copy now uses shutil.copy2 (was os.system 'sudo cp').
-        with patch('shutil.copy2'):
+        with patch.object(CuemsNodeConf, '_render_service_record', return_value=False):
             nodeconf.set_node_role()
 
             assert nodeconf.node['node_role'] == NodeRole.node

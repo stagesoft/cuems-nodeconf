@@ -346,3 +346,22 @@ responsibility's three `copy2` sites with one helper. The guard (R5) and the see
 identity, which the daemon already owns (plan 09 §5's note). The configured waits and pre-flight (R7)
 are lifecycle. Nothing new joins the inventory; the atomization basis' rows stay valid, and row
 "Avahi service-template files" gets *smaller*.
+
+---
+
+## R14. Consumer check (spec Story 4, their T096 gate) — measured 2026-09-28
+
+Neither consumer compensates for the refusal string, and neither interprets it.
+
+- **`cuems-engine`**: the checkout is on `rc_1`, which does not contain `cf5c4ad`; the commit is on
+  `origin/feat/nodelist-modify-dispatch`. Read at the commit itself:
+  `git grep -nE 'starting up|retry|retries|not found' cf5c4ad -- src/cuemsengine/ControllerEngine.py`
+  → no matches. What it does carry: `NODECONF_IPC_PATH = "/tmp/nodeconf.ipc"` (:23), the existence
+  probe `if not os.path.exists(NODECONF_IPC_PATH)` (:857) and an explicit `timeout=NODECONF_TIMEOUT_S`
+  on the request (:867). One probe, one timeout, no retry, no reading of the error string.
+- **`cuems-editor`**: flat layout (`*.py` at the repository root);
+  `grep -nE 'starting up|nodeconf|retry' *.py` → no matches. The editor relays whatever the engine
+  answers.
+
+Decision D therefore requires **no change in either repository**. The gate is recorded here rather
+than in their trees.

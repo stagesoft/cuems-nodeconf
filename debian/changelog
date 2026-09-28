@@ -17,6 +17,23 @@ cuems-nodeconf (0.1.0-8) UNRELEASED; urgency=medium
   * cuems-utils is bounded (>= 0.1.0rc16, << 0.1.1~) instead of carrying
     two disagreeing floors: a floor alone cannot refuse a library that
     has moved past this package.
+  * An adopt or unadopt that reaches the daemon before it has loaded the
+    network map is answered {'OK': False, 'error': 'nodeconf is still
+    starting up'} instead of a false 'Node <uuid> not found'. The response
+    shape is unchanged and the engine and editor relay the string
+    verbatim; no consumer changes. The interface wait that bounds that
+    window and the controller's pre-discovery pause are configurable
+    through CUEMS_NODECONF_IFACE_TIMEOUT and CUEMS_NODECONF_CONTROLLER_PAUSE
+    (defaults 10 and 5, unchanged).
+  * The daemon is now the sole writer of /etc/avahi/services/cuems.service,
+    rendered from /etc/cuems/settings.xml over the placeholder uuid in the
+    templates cuems-common 1.3.0-23 ships, before the request socket exists
+    and again at every role change; avahi-daemon is reloaded only when the
+    bytes changed. An unprovisioned node (settings.xml absent, invalid or
+    carrying the placeholder identity) logs NOT PROVISIONED and refuses to
+    start. After re-minting an identity, restart cuems-nodeconf. This node's
+    own map row is seeded through cuemsutils' NodeIndex.ensure, which needs
+    a cuems-utils build at 73daab6 or later inside 0.1.0rc16.
 
  -- Ion Reguera <ion@stagelab.coop>  Thu, 17 Sep 2026 16:15:56 +0000
 

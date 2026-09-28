@@ -1,4 +1,46 @@
+<!--
+SPDX-FileCopyrightText: 2026 Stagelab Coop SCCL
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # CUEMS NodeConf Startup Analysis
+
+> **Relocated** from the repository root by feature `003-startup-readiness` (2026-09-28). The
+> analysis below was written on **2026-09-17** against a tree that predates features 001 and 002;
+> **every line number in it has moved since**. It is kept because its "Startup Flow Simulation" is
+> the only written narrative of the boot order this repository has (constitution VI), and because
+> the five runtime issues are not spent. Re-measure before relying on any coordinate here.
+
+## Status — re-measured 2026-09-28 against `6f31a7a`
+
+Per finding, from `specs/planning/10-readiness-window.md` §5.2 (evidence there):
+
+| # | Finding | Status | Evidence (2026-09-28) |
+|---|---|---|---|
+| 1 | `update_service()` can use an unbound `ip` | **FIXED** | `CuemsAvahiListener.py` initialises `ip = None` and falls back to `addresses[0]` |
+| 2 | `stop_requested = True` missing `self.` | **FIXED** | `communicate.py` `self.stop_requested = True` |
+| 3 | `self_controller_ip = None` typo | **FIXED** | no `self_controller_ip` in the tree |
+| 4 | `get_ips()` timeout caught but execution continues | **FIXED** at all three call sites | `sys.exit(-1)` plus an `ip is None` guard in `run()`; warn-and-continue in the resident loop; re-raise after a network change |
+| 5 | `retreive_local_node()` loop logic confusing | **FIXED** | returns on match, raises `TimeoutError` after the loop; feature 003 adds the uuid guard |
+| 6 | listener started, local node sought immediately | **FIXED** | `wait_for_local_service_registration()` (5 s, 0.2 s) sits between the listener start and the lookup |
+| 7 | TXT property read by position | **FIXED** | all access by name (`node_role`, `uuid`) |
+| 8 | `add_service()` lacks validation | **FIXED** | `info is None`, empty-`addresses`, missing-property checks |
+| 9 | `update_service()` lacks validation | **FIXED** | same three guards |
+| 10 | `time.sleep(5)` hardcoded *"without justification"* | **CLOSED by feature 003** | justified in a comment since; now `CUEMS_NODECONF_CONTROLLER_PAUSE` with default 5 |
+| 11 | `while self.listener.nodes.firstruns:` has no timeout | **MOOT** | `firstruns` no longer exists; the loop is bounded (60 × 0.5 s) |
+| 12 | network/subprocess/dbus operations lack error handling | **RETIRED** | unfalsifiable as written; a named site becomes its own item when found (feature 003 triage) |
+
+Runtime issues:
+
+| | Issue | Status | Disposition (feature 003 triage, option B, 2026-09-28) |
+|---|---|---|---|
+| 1 | interface timing; the 10-second wait may not suffice on slow systems | **CLOSED by feature 003** | `CUEMS_NODECONF_IFACE_TIMEOUT`, default 10; it bounds the readiness window |
+| 2 | no check that avahi-daemon is running | **CLOSED by feature 003** | a pre-flight logs a missing avahi before the socket exists; the unit already `Requires=avahi-daemon.service` |
+| 3 | `network_map.xml` write permissions, no error handling | **LARGELY ADDRESSED** by features 001/002 | `_map_write_pending` retries; the library preserves the file mode |
+| 4 | no validation that D-Bus is available | **CLOSED by feature 003** | the same pre-flight logs an unreachable system bus; the suite stubs `dbus`, so this is hardware-verified only |
+| 5 | simultaneous boot → several nodes elect themselves controller | **OPEN — its own feature** | a real election protocol; Principle VI territory far larger than the start-up window |
+
+---
 
 ## Executive Summary
 After analyzing the codebase and simulating a computer startup with this service enabled, **several critical issues were identified** that would prevent reliable operation. The service has multiple bugs, race conditions, and error handling gaps that need to be addressed.

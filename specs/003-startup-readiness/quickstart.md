@@ -33,6 +33,7 @@ Baseline before this feature: 119 passed, yardstick 15 passed.
 ```
 .venv/bin/python - <<'PY'
 from unittest.mock import MagicMock, patch
+import tests.conftest   # stubs dbus, systemd and netifaces, as the suite does on a dev checkout
 from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
 n = CuemsNodeConf(); n.communications_thread = MagicMock()
 # respond_to_engine is a MagicMock here, not a coroutine, so the scheduling call is

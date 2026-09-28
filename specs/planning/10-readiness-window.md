@@ -16,7 +16,7 @@ this item until now. The `cuems-utils` checkout is useful but **not required**.
 **It names a new feature: `003-startup-readiness`.** Numbering follows `001-network-map-object-adoption`
 and `002-public-network-map-path`.
 
-**Status**: brief only. No `/speckit.specify` has been run. Two of the three work items below are
+**Status**: spec, plan and tasks written 2026-09-28 — see `specs/003-startup-readiness/`. (Was: brief only.) Two of the three work items below are
 already measured and need no research; the third is a backlog that needed researching before it could
 be scoped, and §5 is that research.
 
