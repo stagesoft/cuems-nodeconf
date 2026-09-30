@@ -238,7 +238,7 @@ class TestNodeAdoption:
         nodeconf.map_path = str(cuems_conf_dir / 'network_map.xml')
 
         node = Node(
-            uuid='12345678-1234-5678-1234-567812345678',
+            uuid='12345678-1234-4678-8234-567812345678',
             mac='testmac123456',
             name='test_node',
             node_role=NodeRole.node,
@@ -248,7 +248,7 @@ class TestNodeAdoption:
         )
         nodeconf.network_map['testmac123456'] = node
 
-        result = nodeconf.adopt_node('12345678-1234-5678-1234-567812345678')
+        result = nodeconf.adopt_node('12345678-1234-4678-8234-567812345678')
         assert result['OK'] is True
 
         reread = CuemsNodeConf()
@@ -259,4 +259,4 @@ class TestNodeAdoption:
         written_node = reread.network_map['testmac123456']
         assert written_node['adopted'] is True
         assert written_node['node_role'] is NodeRole.node
-        assert written_node['uuid'] == '12345678-1234-5678-1234-567812345678'
+        assert written_node['uuid'] == '12345678-1234-4678-8234-567812345678'

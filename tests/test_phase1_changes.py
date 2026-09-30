@@ -25,7 +25,7 @@ def _master_nodeconf(tmp_path):
     nc.network_map = NodeIndex()
     nc.listener = CuemsAvahiListener(ip='169.254.0.1')
     nc.network_map['aabbccddeeff'] = Node(
-        uuid='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        uuid='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
         mac='aabbccddeeff',
         name='controller._cuems_nodeconf._tcp.local.',
         node_role=NodeRole.controller,
@@ -51,7 +51,7 @@ def test_master_guard_survives_a_write(tmp_path):
     # the node_role became a str, so the controller guard stopped matching.
     nc = _master_nodeconf(tmp_path)
     nc.refresh_network_map()
-    result = nc.unadopt_node('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')
+    result = nc.unadopt_node('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
     assert result['OK'] is False
     assert 'master' in result['error'].lower()
 
@@ -138,7 +138,7 @@ def test_merge_discovered_controller_does_not_duplicate(tmp_path):
 
     listener = CuemsAvahiListener(ip='169.254.0.1')
     listener.nodes['controller._'] = Node(
-        uuid='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',                       # same uuid as the map entry
+        uuid='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',                       # same uuid as the map entry
         mac='controller._',                    # garbage key from the name
         name='controller._cuems_nodeconf._tcp.local.',
         node_role=NodeRole.controller,

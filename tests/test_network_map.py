@@ -129,7 +129,7 @@ class TestRefreshWritesOnlyWhatItMust:
         map_path = str(tmp_path / 'network_map.xml')
         nodeconf = _nodeconf(map_path)
         nodeconf.listener.nodes['aabbccddeeff'] = Node(
-            uuid='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+            uuid='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
             mac='aabbccddeeff',
             name='aabbccddeeff._cuems_nodeconf._tcp.local.',
             node_role=NodeRole.node,
@@ -158,7 +158,7 @@ class TestRefreshWritesOnlyWhatItMust:
         """
         nodeconf = _nodeconf()
         nodeconf.listener.nodes['aabbccddeeff'] = Node(
-            uuid='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+            uuid='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
             mac='aabbccddeeff',
             name='aabbccddeeff._cuems_nodeconf._tcp.local.',
             node_role=NodeRole.node,
@@ -196,15 +196,16 @@ class TestReadNetworkMap:
     def test_reads_a_map_that_does_not_list_this_node_yet(self, cuems_conf_dir):
         """A freshly provisioned node: its map does not contain it yet.
 
-        `cuems-config-node write` gives settings.xml a new uuid and leaves
-        network_map.xml alone, so on first boot the map lists other nodes (the
-        default cuems-common ships lists one controller) but not this one.
+        `cuems-init-node` gives settings.xml its identity and seeds this node's
+        own row; on a node provisioned before that existed, the map lists other
+        nodes (the default cuems-common ships lists one controller) but not
+        this one.
         nodeconf is the service that writes this node into the map — the engine
         cannot start until it has — so reading such a map must succeed.
         """
         settings = cuems_conf_dir / 'settings.xml'
         settings.write_text(re.sub(
-            r'<uuid>[^<]*</uuid>', f'<uuid>{uuid.uuid1()}</uuid>', settings.read_text()
+            r'<uuid>[^<]*</uuid>', f'<uuid>{uuid.uuid4()}</uuid>', settings.read_text()
         ))
         nodeconf = CuemsNodeConf()
         nodeconf.map_path = str(cuems_conf_dir / 'network_map.xml')
