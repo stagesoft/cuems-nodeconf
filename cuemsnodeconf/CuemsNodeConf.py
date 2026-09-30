@@ -21,7 +21,7 @@ from .CuemsAvahiListener import CuemsAvahiListener
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole
 from cuemsutils.tools.NodeList import node as Node
 from cuemsutils.tools.ConfigManager import ConfigManager
-from cuemsutils.errors import SchemaError
+from cuemsutils.errors import SchemaError, ValidationError
 
 from cuemsutils.tools.TimeoutLoop import TimeoutLoop
 from cuemsutils.log import Logger, logged
@@ -859,9 +859,9 @@ class CuemsNodeConf():
             manager.load_network_map()
         except ValueError:
             # load_network_map ends by resolving THIS node's own entry, and
-            # raises when the map does not list it yet -- which is every freshly
-            # provisioned node: cuems-config-node gives settings.xml a new uuid
-            # and leaves the map alone. nodeconf is what writes this node into
+            # raises when the map does not list it yet -- which is every node
+            # provisioned before cuems-init-node seeded its own row, and any map
+            # restored from before this node joined. nodeconf is what writes this node into
             # the map (the engine cannot start until it has), so it must read
             # such a map. By then the map is loaded and validated; a broken
             # document raises SchemaError, which is not a ValueError. If the map
@@ -869,6 +869,25 @@ class CuemsNodeConf():
             if not hasattr(manager, 'network_map'):
                 raise
             Logger.info('This node is not in network_map.xml yet; discovery will add it')
+        except ValidationError as e:
+            # The map is on disk but cuemsutils refuses it: a schema failure, a
+            # non-converged identity, or two rows sharing one identity. Every one
+            # is a refusal to guess, and nodeconf -- whose job is to rewrite this
+            # file every 30 s -- must not write over it either. Say why and stop,
+            # rather than die on a traceback. Never recover: in particular, never
+            # merge, de-duplicate or pick a row of a collision -- the compound
+            # <identity>_<output> prefix in the project library is the only
+            # record of which node an output belongs to, so splitting the pair
+            # would silently reassign one node's outputs.
+            Logger.critical(f'{self.map_path} cannot be read: {e}')
+            if 'node identities are not unique' in str(e):
+                Logger.critical('Two rows share one node identity. Resolve the collision '
+                                'by hand before starting nodeconf -- see the cuems-utils '
+                                'feature 012 migration guide, section 7.')
+            else:
+                Logger.critical('Correct the document by hand before starting nodeconf; '
+                                'it will not be rewritten while it is refused.')
+            sys.exit(1)
         # Keep the document BEFORE installing the index, not after. set_comms()
         # starts the IPC listener before run(), so an adopt arriving between
         # these two lines would mutate a populated index and then try to save

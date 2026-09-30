@@ -15,10 +15,10 @@ import uuid
 import pytest
 from unittest.mock import patch
 
+import cuemsutils.errors
 from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
 from cuemsnodeconf.CuemsAvahiListener import CuemsAvahiListener
 from cuemsutils.config.network_map import CuemsNetworkMapType
-from cuemsutils.errors import ValidationError
 from cuemsutils.tools.NodeList import NodeIndex, NodeRole, node as Node
 
 
@@ -229,18 +229,51 @@ class TestReadNetworkMap:
         with pytest.raises(FileNotFoundError):
             nodeconf.read_network_map()
 
-    def test_a_map_that_fails_validation_still_fails_loudly(self, cuems_conf_dir):
+    def test_a_map_that_fails_validation_still_fails_loudly(self, cuems_conf_dir, caplog):
         """The fresh-node catch is narrow: it tolerates this node being absent
-        from a valid map, never a map that is itself broken."""
+        from a valid map, never a map that is itself broken. Broken means a
+        diagnosis and exit 1 -- the unit's failure -- not a traceback, and the
+        map is left exactly as it was found."""
         network_map = cuems_conf_dir / 'network_map.xml'
         text = network_map.read_text()
         assert text.count('<node_role>node</node_role>') == 1
-        network_map.write_text(text.replace('<node_role>node</node_role>', '<node_role>bogus</node_role>'))
+        broken = text.replace('<node_role>node</node_role>', '<node_role>bogus</node_role>')
+        network_map.write_text(broken)
         nodeconf = CuemsNodeConf()
         nodeconf.map_path = str(network_map)
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(SystemExit) as exit_info:
             nodeconf.read_network_map()
+
+        assert exit_info.value.code == 1
+        assert 'cannot be read' in caplog.text
+        assert network_map.read_text() == broken
+        assert not nodeconf._ready
+
+    @pytest.mark.skipif(
+        not hasattr(cuemsutils.errors, 'node_identity_collision_message'),
+        reason='this cuemsutils predates the node-identity uniqueness rule (feature 012)',
+    )
+    def test_a_map_with_two_rows_sharing_one_identity_exits_with_a_diagnosis(self, cuems_conf_dir, caplog):
+        """cuemsutils refuses a map whose rows share an identity, and nodeconf
+        must neither guess which row is real nor die on a traceback: it names
+        the collision, points at the procedure, and exits 1 without writing."""
+        network_map = cuems_conf_dir / 'network_map.xml'
+        text = network_map.read_text()
+        assert text.count('0367f391-ebf4-48b2-9f26-000000000003') == 1
+        colliding = text.replace('0367f391-ebf4-48b2-9f26-000000000003',
+                                 '0367f391-ebf4-48b2-9f26-000000000001')
+        network_map.write_text(colliding)
+        nodeconf = CuemsNodeConf()
+        nodeconf.map_path = str(network_map)
+
+        with pytest.raises(SystemExit) as exit_info:
+            nodeconf.read_network_map()
+
+        assert exit_info.value.code == 1
+        assert 'Resolve the collision by hand' in caplog.text
+        assert network_map.read_text() == colliding
+        assert not nodeconf._ready
 
 
 class TestAnAdoptionIsNotLostToTheNextRefresh:
