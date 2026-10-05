@@ -315,6 +315,6 @@ class TestAnAdoptionIsNotLostToTheNextRefresh:
 
         assert nodeconf.network_map['aabbccddeeff']['adopted'] is True
         written = open(map_path).read()
-        assert re.search(r'<adopted>\s*True\s*</adopted>', written), (
+        assert re.search(r'<adopted>\s*true\s*</adopted>', written), (
             'the adoption reached the index but not the map on disk'
         )

@@ -73,11 +73,11 @@ view** — not by calling the method directly, which skips the dispatch the cont
 
 | Case | Set up by | Expect in the UI | Expect on disk |
 |---|---|---|---|
-| adopt an online node | a discovered, unadopted node | success | `<adopted>True</adopted>` **immediately**, before the next discovery pass |
+| adopt an online node | a discovered, unadopted node | success | `<adopted>true</adopted>` **immediately**, before the next discovery pass |
 | adopt an already-adopted node | repeat the above | success, no change | unchanged |
 | adopt an offline node | power a node down, wait for a discovery pass | `Cannot adopt node {uuid}: node is offline` | unchanged |
 | adopt/remove an unknown uuid | craft the request | `Node {uuid} not found` | unchanged |
-| unadopt a node | any adopted non-controller | success | `<adopted>False</adopted>` immediately |
+| unadopt a node | any adopted non-controller | success | `<adopted>false</adopted>` immediately |
 | unadopt the controller | the controller's own entry | `Cannot unadopt master node` | unchanged |
 
 ```bash
