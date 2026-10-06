@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Stagelab Coop SCCL
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileContributor: Ion Reguera <ion@stagelab.coop>
 """Regression tests for the Phase-1 nodeconf re-enable changes.
 
 Covers the invariants that were either broken or newly introduced:
@@ -168,3 +171,136 @@ def test_merge_discovered_controller_does_not_duplicate(tmp_path):
     assert node.online is True
     assert node.adopted is True
     assert node.node_type is CuemsNode.NodeType.master
+
+
+# --- Foreign controllers on a shared LAN -----------------------------------
+#
+# Several clusters share the taller LAN (test2, test, test3). Every controller
+# advertises node_type=master over mDNS. A host's map must only ever hold ITS
+# cluster's controller: the 2026-10-01 incident had test2's nodeconf merge
+# test3 into its map and set_master_always_adopted() mark it ADOPTED.
+
+def _foreign_master(uuid='u-foreign', ip='10.16.10.4', name='controller-2'):
+    return CuemsNode({
+        'uuid': uuid,
+        'mac': name + '._',                       # garbage key from the name
+        'name': f'{name}._cuems_nodeconf._tcp.local.',
+        'node_type': CuemsNode.NodeType.master,
+        'ip': ip,
+        'adopted': False,
+        'online': True,
+    })
+
+
+def _slave(uuid='u-slave', mac='112233445566', ip='169.254.0.2'):
+    return CuemsNode({
+        'uuid': uuid,
+        'mac': mac,
+        'name': f'{mac}._cuems_nodeconf._tcp.local.',
+        'node_type': CuemsNode.NodeType.slave,
+        'ip': ip,
+        'adopted': False,
+        'online': True,
+    })
+
+
+def test_controller_ignores_foreign_controllers_on_shared_lan(tmp_path):
+    nc = _master_nodeconf(tmp_path)
+    nc.node = nc.network_map['aabbccddeeff']     # I am this cluster's master
+
+    listener = CuemsAvahiListener(ip='169.254.0.1')
+    listener.nodes['controller._'] = CuemsNode({
+        'uuid': 'u-master', 'mac': 'controller._',
+        'name': 'controller._cuems_nodeconf._tcp.local.',
+        'node_type': CuemsNode.NodeType.master, 'ip': '169.254.0.1',
+        'adopted': False, 'online': True,
+    })
+    listener.nodes['112233445566'] = _slave()
+    listener.nodes['controller-2._'] = _foreign_master()
+    listener.nodes['ac2b6e046d5c'] = _foreign_master(
+        uuid='u-foreign-2', ip='10.16.10.2', name='ac2b6e046d5c')
+    nc.listener = listener
+
+    nc.merge_discovered_nodes()
+    nc.set_master_always_adopted()
+
+    uuids = {n.uuid for n in nc.network_map.values()}
+    assert uuids == {'u-master', 'u-slave'}
+    # Only OUR master is adopted; the new slave waits for operator adoption.
+    assert nc.network_map['aabbccddeeff'].adopted is True
+    assert nc.network_map['112233445566'].adopted is False
+
+
+def test_controller_purges_foreign_controller_already_persisted(tmp_path):
+    # A map written by an unfiltered nodeconf already carries a peer
+    # controller as adopted=True (test2's real map on 2026-10-06). It must be
+    # dropped, not merely flipped offline.
+    nc = _master_nodeconf(tmp_path)
+    nc.node = nc.network_map['aabbccddeeff']
+    stale = _foreign_master(uuid='u-foreign-2', ip='10.16.10.2',
+                            name='ac2b6e046d5c')
+    stale.adopted = True
+    stale.online = False
+    nc.network_map['ac2b6e046d5c'] = stale
+
+    listener = CuemsAvahiListener(ip='169.254.0.1')
+    listener.nodes['ac2b6e046d5c'] = _foreign_master(
+        uuid='u-foreign-2', ip='10.16.10.2', name='ac2b6e046d5c')
+    nc.listener = listener
+
+    nc.merge_discovered_nodes()
+    nc.set_master_always_adopted()
+
+    assert list(nc.network_map.keys()) == ['aabbccddeeff']
+    assert nc.network_map['aabbccddeeff'].adopted is True
+
+
+def test_node_keeps_its_recorded_controller_and_ignores_others(tmp_path):
+    # A node (slave) belongs to the master its map already records.
+    nc = _master_nodeconf(tmp_path)                  # map: our master u-master
+    nc.node = _slave()                                # I am a node
+    nc.network_map['112233445566'] = nc.node
+    nc.node.adopted = True
+
+    listener = CuemsAvahiListener(ip='169.254.0.2')
+    listener.nodes['controller._'] = CuemsNode({
+        'uuid': 'u-master', 'mac': 'controller._',
+        'name': 'controller._cuems_nodeconf._tcp.local.',
+        'node_type': CuemsNode.NodeType.master, 'ip': '169.254.0.1',
+        'adopted': False, 'online': True,
+    })
+    listener.nodes['112233445566'] = _slave()
+    listener.nodes['controller-2._'] = _foreign_master()
+    nc.listener = listener
+
+    nc.merge_discovered_nodes()
+
+    assert {n.uuid for n in nc.network_map.values()} == {'u-master', 'u-slave'}
+    assert nc.network_map['aabbccddeeff'].online is True
+
+
+def test_fresh_node_with_no_recorded_controller_accepts_the_first_one(tmp_path):
+    # Legacy / first-join behaviour is unchanged: with no master in the map
+    # there is nothing to compare against, so the discovered master is taken.
+    nc = CuemsNodeConf()
+    nc.map_path = str(tmp_path / 'network_map.xml')
+    nc.xsd_path = CANON_XSD
+    nc.network_map = CuemsNodeDict()
+    nc.node = _slave()
+
+    listener = CuemsAvahiListener(ip='169.254.0.2')
+    listener.nodes['controller._'] = CuemsNode({
+        'uuid': 'u-master', 'mac': 'controller._',
+        'name': 'controller._cuems_nodeconf._tcp.local.',
+        'node_type': CuemsNode.NodeType.master, 'ip': '169.254.0.1',
+        'adopted': False, 'online': True,
+    })
+    listener.nodes['112233445566'] = _slave()
+    nc.listener = listener
+
+    nc.merge_discovered_nodes()
+    nc.set_master_always_adopted()
+
+    assert {n.uuid for n in nc.network_map.values()} == {'u-master', 'u-slave'}
+    master = next(n for n in nc.network_map.values() if n.uuid == 'u-master')
+    assert master.adopted is True

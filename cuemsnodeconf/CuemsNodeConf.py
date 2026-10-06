@@ -44,6 +44,9 @@ class CuemsNodeConf():
         self.xsd_path = os.path.join( CUEMS_CONF_PATH, MAP_SCHEMA_FILE)
         self.map_path = os.path.join( CUEMS_CONF_PATH, MAP_FILE)
         self.network_map = CuemsNodeDict()
+        # Decided in run() from the presence of network_map.xml; default so
+        # the merge helpers can run on an instance that never called run().
+        self.is_first_run = False
 
         self.services = ['_cuems_nodeconf._tcp.local.']
 
@@ -492,8 +495,45 @@ class CuemsNodeConf():
         os.replace(tmp_path, self.map_path)
         Logger.debug("Network map written to XML (atomic)")
 
+    def _cluster_master_uuids(self):
+        """UUIDs of the controller(s) this host belongs to.
+
+        These are the ONLY masters allowed in this host's network_map. Several
+        CUEMS clusters routinely share one LAN (the taller has test2, test and
+        test3 side by side), and every controller advertises itself as a
+        master over mDNS. Without this filter a controller's nodeconf merged
+        every peer controller it heard into its own map and
+        set_master_always_adopted() then marked them ADOPTED, so the engine
+        counted foreign controllers as members of this cluster.
+
+        - A controller is its own cluster's master.
+        - A node's master is whatever master its map already records (set when
+          it joined). On a map with no master yet (fresh node, or legacy map)
+          the set is empty and the first discovered master is accepted, as
+          before.
+        """
+        own = getattr(self, 'node', None)
+        if (own is not None
+                and own.node_type == CuemsNode.NodeType.master
+                and own.get('uuid')):
+            return {own.uuid}
+        return {
+            n.uuid for n in self.network_map.values()
+            if n.node_type == CuemsNode.NodeType.master and n.get('uuid')
+        }
+
+    @staticmethod
+    def _is_foreign_master(node, cluster_masters):
+        """A master that is not one of ours — another cluster's controller."""
+        return (
+            node.node_type == CuemsNode.NodeType.master
+            and bool(cluster_masters)
+            and node.get('uuid') not in cluster_masters
+        )
+
     def merge_discovered_nodes(self):
         Logger.debug('Merging discovered nodes with network_map')
+        cluster_masters = self._cluster_master_uuids()
         # Match discovered nodes to the existing map by UUID, the stable primary
         # key (per the node-identity model). We must NOT key on the mac derived
         # from the avahi service name: the controller advertises its service as
@@ -511,6 +551,15 @@ class CuemsNodeConf():
         discovered_uuids = set()
         for _disc_key, discovered_node in self.listener.nodes.items():
             d_uuid = discovered_node.get('uuid')
+            if self._is_foreign_master(discovered_node, cluster_masters):
+                # Another cluster's controller on the shared LAN: not ours,
+                # never enters this map (see _cluster_master_uuids).
+                Logger.debug(
+                    f'Ignoring foreign controller {discovered_node.get("name")} '
+                    f'(uuid={d_uuid}, ip={discovered_node.get("ip")}): '
+                    f'not this cluster\'s master'
+                )
+                continue
             if d_uuid:
                 discovered_uuids.add(d_uuid)
 
@@ -535,6 +584,17 @@ class CuemsNodeConf():
                 self.network_map[key].adopted = False
                 self.network_map[key].online = True
                 Logger.debug(f'Added new discovered node uuid={d_uuid} key={key}')
+
+        # Purge foreign controllers that an earlier (unfiltered) pass already
+        # persisted — e.g. a peer controller recorded as adopted=True.
+        for mac in [m for m, n in self.network_map.items()
+                    if self._is_foreign_master(n, cluster_masters)]:
+            gone = self.network_map.pop(mac)
+            Logger.info(
+                f'Dropped foreign controller {gone.get("name")} '
+                f'(uuid={gone.get("uuid")}, ip={gone.get("ip")}) from '
+                f'network_map: it belongs to another cluster'
+            )
 
         # Offline pass keyed on UUID, not mac (same reason as above).
         for mac, node in self.network_map.items():

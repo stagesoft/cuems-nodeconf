@@ -60,4 +60,18 @@ a concurrent pair can promote a truncated XML that nothing can load.
 
 ## Field notes / gotchas
 
+- **Foreign controllers on a shared LAN are filtered (0.1.0-8).** Every
+  controller advertises `node_type=master`, and the taller has three clusters
+  on one LAN (test2, test, test3). Before 0.1.0-8 `merge_discovered_nodes`
+  took every master it heard and `set_master_always_adopted` marked them
+  **adopted** — test2's map gained test3 (2026-10-01) and the `test` box
+  (2026-10-06) as adopted controllers. Now `_cluster_master_uuids()` decides
+  who "our" master is (a controller: itself; a node: the master its map already
+  records; an empty map: first come, as before) and `_is_foreign_master()`
+  drops the rest at discovery and purges any already persisted (`Dropped
+  foreign controller … belongs to another cluster` in the journal). The
+  firstrun election (`set_node_type`) still looks at *all* masters on the LAN,
+  so a brand-new node on a shared LAN will still elect itself a slave of
+  whichever controller it hears first.
+
 - **mDNS interface scoping** (shaped the alias design): `avahi-publish -a` cannot scope a static A record to one interface (it floods all, leaking 169.254 onto the UI net) — interface-scoped records need the avahi D-Bus API `EntryGroup.AddAddress(interface_index, ...)`. avahi-daemon's native hostname publication is already per-interface-correct, so do NOT statically publish `controller.local` when hostname == controller (redundant + the double-A-record Mac trap). `.local` is link-scoped — no resolution across routers; UI access from routed segments needs real DNS.

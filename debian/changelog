@@ -1,3 +1,21 @@
+cuems-nodeconf (0.1.0-8) unstable; urgency=medium
+
+  * Keep only this cluster's controller in network_map. Several clusters
+    share one LAN (taller: test2, test, test3) and every controller
+    advertises node_type=master over mDNS; merge_discovered_nodes() took
+    every master it heard and set_master_always_adopted() then marked them
+    ADOPTED, so a controller's map (and the engine's adopted-node set)
+    gained peer controllers from other clusters. A controller now accepts
+    only itself as master, a node only the master its map already records
+    (a map with no master keeps the first-come behaviour); foreign
+    controllers are ignored on discovery and purged if an earlier pass had
+    persisted them. Regression tests added.
+  * Includes the unreleased hardening since 0.1.0-7: answer every IPC
+    request, serialize the three map writers under one lock, stop coercing
+    string-typed node fields on XML read.
+
+ -- Ion Reguera <ion@stagelab.coop>  Tue, 06 Oct 2026 12:45:00 +0200
+
 cuems-nodeconf (0.1.0-7) unstable; urgency=medium
 
   * Route Avahi-listener/ConfServer through cuemsutils.log: drop the
