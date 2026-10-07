@@ -335,6 +335,38 @@ class CuemsNodeConf():
 
         Logger.debug('Startup complete, notifying systemd')
         systemd.daemon.notify(status)
+    # Cluster-link candidates, in order. The ':avahi' labels are where
+    # avahi-autoipd puts an IPv4LL address; a cluster link configured with a
+    # STATIC 169.254.x address (e.g. `address 169.254.0.1/16` in
+    # /etc/network/interfaces, so ProxyJump addresses never move) has no such
+    # label, so the plain interface is accepted too -- but only for a
+    # link-local address, never the AP bridge's 192.168.6.1 or a LAN address.
+    CLUSTER_LINK_LABELS = (('bridge0', 'bridge0:avahi'), ('ethernet1', 'ethernet1:avahi'))
+
+    @staticmethod
+    def _ipv4_of(name):
+        try:
+            return [a['addr'] for a in netifaces.ifaddresses(name).get(netifaces.AF_INET, []) if a.get('addr')]
+        except (ValueError, KeyError):
+            return []
+
+    def _cluster_address(self):
+        """(ip, real_iface) of the cluster link, or (None, None).
+
+        Prefers avahi-autoipd's labelled address (unchanged behaviour), then a
+        static link-local address on the same interface."""
+        for iface, label in self.CLUSTER_LINK_LABELS:
+            addrs = self._ipv4_of(label)
+            if addrs:
+                Logger.debug(f"Found {label} interface, IP: {addrs[0]}")
+                return addrs[0], iface
+        for iface, _label in self.CLUSTER_LINK_LABELS:
+            for addr in self._ipv4_of(iface):
+                if addr.startswith('169.254.'):
+                    Logger.debug(f"No {iface}:avahi label; using static link-local {addr} on {iface}")
+                    return addr, iface
+        return None, None
+
     def get_ips(self):
         # self.ip            = cluster/node-side address (publishes controller.local)
         # self.controller_ip = UI/outward address (publishes the UI alias)
@@ -346,30 +378,22 @@ class CuemsNodeConf():
         self.cluster_iface = None
         self.ui_iface = None
         for passed in Timeoutloop(timeout=10, interval=1):
-            try:
-                self.ip = netifaces.ifaddresses('bridge0:avahi')[netifaces.AF_INET][0]['addr']
-                self.cluster_iface = 'bridge0'
-                Logger.debug(f"Found bridge0:avahi interface, IP: {self.ip}")
+            self.ip, self.cluster_iface = self._cluster_address()
+            if self.cluster_iface == 'bridge0':
+                # A node: the bridge is its only cluster-side interface.
                 return
+            if self.ip is None:
+                Logger.debug("Waiting for the cluster link (bridge0/ethernet1) to get an address")
+            try:
+                self.controller_ip = netifaces.ifaddresses('bond0')[netifaces.AF_INET][0]['addr']
+                self.ui_iface = 'bond0'
+                if self.ip != None:
+                    Logger.debug(f"Found bond0 interface, CONTROLLER IP: {self.controller_ip}")
+                    return
+                else:
+                    Logger.debug(f"Found bond0 interface, but the cluster link has no address yet, continuing")
             except (ValueError, KeyError):
-                Logger.debug("bridge0:avahi interface not found, triying next ones")
-                try:
-                    self.ip = netifaces.ifaddresses('ethernet1:avahi')[netifaces.AF_INET][0]['addr']
-                    self.cluster_iface = 'ethernet1'
-                    Logger.debug(f"Found ethernet1:avahi interface, IP: {self.ip}")
-                except (ValueError, KeyError):
-                    Logger.debug("Waiting for ethernet1:avahi interface to appear")
-
-                try:
-                    self.controller_ip = netifaces.ifaddresses('bond0')[netifaces.AF_INET][0]['addr']
-                    self.ui_iface = 'bond0'
-                    if self.ip != None:
-                        Logger.debug(f"Found bond0 interface, CONTROLLER IP: {self.controller_ip}")
-                        return
-                    else:
-                        Logger.debug(f"Found bond0 interface, but we are mising ethernet1:avahi interface, continuing")
-                except (ValueError, KeyError):
-                    Logger.debug("Waiting for bond0 interface to appear")
+                Logger.debug("Waiting for bond0 interface to appear")
 
     def start_avahi_listener(self):
         self.listener = CuemsAvahiListener(ip=self.ip, callback=self.on_node_event)

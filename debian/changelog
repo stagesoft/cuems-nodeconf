@@ -1,3 +1,18 @@
+cuems-nodeconf (0.1.0-9) unstable; urgency=medium
+
+  * Accept a cluster link with a STATIC link-local address. get_ips() only
+    looked for avahi-autoipd's labelled addresses (bridge0:avahi,
+    ethernet1:avahi), so on a cluster whose chain is pinned to static
+    169.254.0.x addresses (the alquiler1 hardware, now the taller `test`,
+    pinned so ProxyJump addresses never move) nodeconf never found its
+    cluster address. It now falls back to the plain bridge0 / ethernet1
+    address, and only if that address is link-local: a controller's AP
+    bridge (192.168.6.1) or a LAN address is never taken for the cluster
+    link. Boxes with the ':avahi' label behave exactly as before.
+    Regression tests added (tests/test_static_cluster_link.py).
+
+ -- Ion Reguera <ion@stagelab.coop>  Wed, 07 Oct 2026 20:06:43 +0200
+
 cuems-nodeconf (0.1.0-8) unstable; urgency=medium
 
   * Keep only this cluster's controller in network_map. Several clusters
