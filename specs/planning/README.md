@@ -17,12 +17,7 @@ link to some of them by path (`09`, `10`), and in-repo specs link to most of the
 | `08-firstrun-signals.md` | Reference | Before adding any first-boot behaviour |
 | `11-startup-analysis.md` | Historical, one item open | The only written boot-order narrative. Runtime issue 5 (election) is open |
 | `yardstick/test_nodeindex_characterization.py` | **Live gate** | Always: `./run-tests.sh` runs it. Read-only; change it in `cuems-utils` and re-vendor |
-
-## Waiting
-
-| Slot | For | Blocked on |
-|---|---|---|
-| `12-node-set-alias.md` | The `node_set` IPC brief (operator alias edits), cited by `cuems-utils` as if it already existed | `cuems-utils` feature 015's `NodeIndex.set_alias` (its gate G4). Not written until that lands. See `../upstream-reports/coordinated-release-bump-corrections.md` §5 |
+| `12-node-set-alias.md` | **Ready to implement** (2026-10-08) | Implementing the `node_set` IPC action (the operator's node `alias`, persisted by the map's only writer). Ten checks against this repository, including that the operator alias is **not** published over mDNS. Depends on `cuems-utils` feature 015's `NodeIndex.set_alias` (gate G4) |
 
 ## Superseded — kept as record
 
