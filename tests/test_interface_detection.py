@@ -6,7 +6,7 @@ import sys
 import importlib
 
 # Import after mocking (conftest.py handles the mock)
-from CuemsNodeConf import CuemsNodeConf
+from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
 
 
 class TestInterfaceDetection:
@@ -61,7 +61,7 @@ class TestInterfaceDetection:
         # Patch netifaces in the module that uses it
         monkeypatch.setitem(sys.modules, 'netifaces', NoInterfaceMock())
         # Reload the module to pick up the new mock
-        import CuemsNodeConf as cn_module
+        from cuemsnodeconf import CuemsNodeConf as cn_module
         importlib.reload(cn_module)
         monkeypatch.setattr(cn_module, 'netifaces', NoInterfaceMock())
         

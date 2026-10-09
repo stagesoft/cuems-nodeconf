@@ -1,18 +1,15 @@
 
-import logging
 import socketserver
 import json
 
-from .CuemsSettings import read_conf
+from cuemsutils.log import main_logger
 
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(name)s: %(message)s',
-                    )
+from .CuemsSettings import read_conf
 
 class CuemsConfServerHandler(socketserver.BaseRequestHandler):
     settings_dict = read_conf()
     def __init__(self, request, client_address, server):
-        self.logger = logging.getLogger('CuemsConfServerHandler')
+        self.logger = main_logger('CuemsConfServerHandler')
         self.logger.debug('__init__')
         socketserver.BaseRequestHandler.__init__(self, request,
                                                  client_address,
@@ -48,7 +45,7 @@ class CuemsConfServer(socketserver.TCPServer):
     def __init__(self, server_address,
                  handler_class=CuemsConfServerHandler,
                  ):
-        self.logger = logging.getLogger('CuemsConfServer')
+        self.logger = main_logger('CuemsConfServer')
         self.logger.debug('__init__')
         socketserver.TCPServer.__init__(self, server_address,
                                         handler_class)

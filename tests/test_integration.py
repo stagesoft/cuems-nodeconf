@@ -5,9 +5,9 @@ import pytest
 from unittest.mock import MagicMock, patch, Mock
 import sys
 
-from CuemsNodeConf import CuemsNodeConf
-from CuemsNode import CuemsNode, CuemsNodeDict
-from CuemsAvahiListener import CuemsAvahiListener
+from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
+from cuemsnodeconf.CuemsNode import CuemsNode, CuemsNodeDict
+from cuemsnodeconf.CuemsAvahiListener import CuemsAvahiListener
 
 
 class TestIntegrationScenarios:
@@ -38,7 +38,6 @@ class TestIntegrationScenarios:
         with patch('shutil.copy2'), \
              patch.object(nodeconf, 'change_network_to_master', return_value=True), \
              patch.object(nodeconf, 'get_ips'), \
-             patch.object(nodeconf, 'publish_master_alias'), \
              patch.object(nodeconf, 'write_network_map'), \
              patch.object(nodeconf, 'update_master_lock_file'), \
              patch.object(nodeconf, 'notify_systemd'):

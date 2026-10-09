@@ -5,7 +5,7 @@ import pytest
 import sys
 import importlib
 from unittest.mock import patch
-from CuemsNodeConf import CuemsNodeConf
+from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
 
 
 class TestErrorHandling:
@@ -31,7 +31,7 @@ class TestErrorHandling:
                 return {'default': {}}
         
         monkeypatch.setitem(sys.modules, 'netifaces', NoInterfaceMock())
-        import CuemsNodeConf as cn_module
+        from cuemsnodeconf import CuemsNodeConf as cn_module
         importlib.reload(cn_module)
         monkeypatch.setattr(cn_module, 'netifaces', NoInterfaceMock())
         

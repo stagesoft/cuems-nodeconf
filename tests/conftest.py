@@ -71,10 +71,21 @@ def mock_netifaces(monkeypatch):
     monkeypatch.setitem(sys.modules, 'netifaces', MockNetifaces())
     
     # Also patch it in any modules that might have already imported it
-    # This is needed because CuemsNodeConf imports netifaces at module level
-    import CuemsNodeConf
-    if hasattr(CuemsNodeConf, 'netifaces'):
-        monkeypatch.setattr(CuemsNodeConf, 'netifaces', MockNetifaces())
-    
+    # This is needed because CuemsNodeConf imports netifaces at module level.
+    #
+    # Import lazily and tolerate failure: CuemsNodeConf pulls in dbus, zeroconf
+    # and systemd at module level, none of which the pure-model tests need. An
+    # unconditional import here made *every* test in the suite error out on a
+    # machine missing any one of them (dbus in particular needs libdbus-1-dev to
+    # build from source). Tests that actually exercise CuemsNodeConf still fail
+    # loudly on their own import.
+    try:
+        from cuemsnodeconf import CuemsNodeConf
+    except ImportError:
+        pass
+    else:
+        if hasattr(CuemsNodeConf, 'netifaces'):
+            monkeypatch.setattr(CuemsNodeConf, 'netifaces', MockNetifaces())
+
     yield MockNetifaces()
 

@@ -3,8 +3,8 @@ Tests for CuemsAvahiListener functionality.
 """
 import pytest
 from unittest.mock import MagicMock, Mock
-from CuemsAvahiListener import CuemsAvahiListener
-from CuemsNode import CuemsNode, CuemsNodeDict
+from cuemsnodeconf.CuemsAvahiListener import CuemsAvahiListener
+from cuemsnodeconf.CuemsNode import CuemsNode, CuemsNodeDict
 
 
 class TestCuemsAvahiListener:

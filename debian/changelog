@@ -1,0 +1,121 @@
+cuems-nodeconf (0.1.0-9) unstable; urgency=medium
+
+  * Accept a cluster link with a STATIC link-local address. get_ips() only
+    looked for avahi-autoipd's labelled addresses (bridge0:avahi,
+    ethernet1:avahi), so on a cluster whose chain is pinned to static
+    169.254.0.x addresses (the alquiler1 hardware, now the taller `test`,
+    pinned so ProxyJump addresses never move) nodeconf never found its
+    cluster address. It now falls back to the plain bridge0 / ethernet1
+    address, and only if that address is link-local: a controller's AP
+    bridge (192.168.6.1) or a LAN address is never taken for the cluster
+    link. Boxes with the ':avahi' label behave exactly as before.
+    Regression tests added (tests/test_static_cluster_link.py).
+
+ -- Ion Reguera <ion@stagelab.coop>  Wed, 07 Oct 2026 20:06:43 +0200
+
+cuems-nodeconf (0.1.0-8) unstable; urgency=medium
+
+  * Keep only this cluster's controller in network_map. Several clusters
+    share one LAN (taller: test2, test, test3) and every controller
+    advertises node_type=master over mDNS; merge_discovered_nodes() took
+    every master it heard and set_master_always_adopted() then marked them
+    ADOPTED, so a controller's map (and the engine's adopted-node set)
+    gained peer controllers from other clusters. A controller now accepts
+    only itself as master, a node only the master its map already records
+    (a map with no master keeps the first-come behaviour); foreign
+    controllers are ignored on discovery and purged if an earlier pass had
+    persisted them. Regression tests added.
+  * Includes the unreleased hardening since 0.1.0-7: answer every IPC
+    request, serialize the three map writers under one lock, stop coercing
+    string-typed node fields on XML read.
+
+ -- Ion Reguera <ion@stagelab.coop>  Tue, 06 Oct 2026 12:45:00 +0200
+
+cuems-nodeconf (0.1.0-7) unstable; urgency=medium
+
+  * Route Avahi-listener/ConfServer through cuemsutils.log: drop the
+    import-time basicConfig that cuemsutils' root NullHandler seed had
+    turned into a no-op (the listener's discovery output went nowhere
+    under systemd) and that, in other import orders, re-armed the
+    duplicate-logging bug. Delete the dead Logger.basicConfig block in
+    CuemsNodeConf.
+
+ -- Ion Reguera <ion@stagelab.coop>  Wed, 29 Jul 2026 19:45:07 +0200
+
+cuems-nodeconf (0.1.0-6) unstable; urgency=medium
+
+  * Fix a controller-engine crash-loop introduced by enabling nodeconf: the
+    nodeconf responder IPC socket (/tmp/nodeconf.ipc) was created root-owned, so
+    the engine (unprivileged cuems user) failed its Communicator R/W access
+    check and exited 1 in a restart loop whenever nodeconf won the boot race to
+    create the socket first. nodeconf now chmods the socket 0666 right after
+    binding the responder, so any local CUEMS process can reach it.
+
+ -- Ion Reguera <ion@stagelab.coop>  Fri, 12 Jun 2026 12:40:00 +0200
+
+cuems-nodeconf (0.1.0-5) unstable; urgency=medium
+
+  * AliasPublisher: actually pass AVAHI_PUBLISH_NO_REVERSE to AddAddress. 0.1.0-4
+    defined the constant but the call still passed flags=0, so the UI alias
+    (formitgo.local) kept failing with "Local name collision" on the reverse PTR
+    for the address the host already owns via its native hostname record.
+
+ -- Ion Reguera <ion@stagelab.coop>  Fri, 12 Jun 2026 10:00:00 +0200
+
+cuems-nodeconf (0.1.0-4) unstable; urgency=medium
+
+  * Fix three bugs a live controller smoke test surfaced:
+    - merge_discovered_nodes now matches discovered services to the map by UUID
+      (the stable primary key), not the mac derived from the avahi service name.
+      The controller's service is named 'controller', so the name-parse yielded
+      a garbage key and every discovery pass DUPLICATED the controller node and
+      flipped the real entry to online=False, orphaning role_id/alias/hostname.
+    - AliasPublisher publishes the UI alias with AVAHI_PUBLISH_NO_REVERSE so it
+      no longer collides with the host's own reverse PTR on the shared address
+      (formitgo.local failed with "Local name collision").
+    - AsyncCommsThread cancels the engine-listener task and closes its event
+      loop on stop(), so pynng frees the nng aio inside the loop instead of at
+      interpreter exit, where it panicked (pthread_mutex) and core-dumped on
+      every stop/restart.
+
+ -- Ion Reguera <ion@stagelab.coop>  Thu, 11 Jun 2026 21:05:00 +0200
+
+cuems-nodeconf (0.1.0-3) unstable; urgency=medium
+
+  * Packaging: ship ONLY cuemsnodeconf* — strip every other file dh-virtualenv
+    stages in the venv bin/ and site-packages. Those (pip/wheel/activate plus
+    dependency payloads such as peewee, its standalone pwiz.py module, lxml,
+    pynng, dbus, ...) are provided by the cuems-utils venv + python3-* system
+    packages and otherwise file-conflict with cuems-utils at dpkg install time
+    ("trying to overwrite '.../pwiz.py'"). Blanket strip is robust against new
+    stragglers, unlike the previous dep-name allow-list.
+
+ -- Ion Reguera <ion@stagelab.coop>  Thu, 11 Jun 2026 20:40:00 +0200
+
+cuems-nodeconf (0.1.0-2) unstable; urgency=medium
+
+  * Rebuild of the resident-daemon code for first controller deploy. No source
+    changes vs the 0.1.0-1 working tree; version bumped so dpkg performs a clean
+    upgrade over the stale 0.1.0-1 build found installed on hosts (Dec-2024
+    one-shot code) and the deployed build is traceable.
+
+ -- Ion Reguera <ion@stagelab.coop>  Thu, 11 Jun 2026 20:30:00 +0200
+
+cuems-nodeconf (0.1.0-1) UNRELEASED; urgency=medium
+
+  * Initial Debian packaging (dh-virtualenv); console entry cuems-nodeconf in
+    the shared /usr/lib/cuems venv.
+  * Re-enable nodeconf as a long-running daemon: resident avahi discovery loop,
+    debounced network_map refresh, atomic + change-detected map writes.
+  * Drop removed cuemsutils.daemon.run_daemon; sd_notify READY=1 via a plain
+    signal-handled main() (Type=notify compatible).
+  * Interface-scoped avahi aliases via D-Bus EntryGroup.AddAddress
+    (controller.local on the cluster iface, UI alias on the outward iface);
+    skip controller.local when the OS hostname is 'controller'.
+  * Fix copy-on-serialize (node_type enum no longer mutated in place),
+    remove_service node removal, per-instance listener state, shutil.copy2 for
+    the slave template.
+  * Drop the stale in-repo network_map.xsd (runtime validates against the
+    cuems-common-shipped /etc/cuems/network_map.xsd).
+
+ -- Ion Reguera <ion@stagelab.coop>  Thu, 11 Jun 2026 19:49:46 +0200

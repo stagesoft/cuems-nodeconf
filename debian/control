@@ -1,0 +1,42 @@
+Source: cuems-nodeconf
+Section: python
+Priority: optional
+Maintainer: Ion Reguera <ion@stagelab.coop>
+Build-Depends: debhelper-compat (= 13),
+               dh-virtualenv (>= 1.2),
+               python3-all,
+               python3-setuptools,
+               python3-pip,
+               python3-dev
+Standards-Version: 4.6.0
+Homepage: https://github.com/stagesoft/cuems-nodeconf
+
+Package: cuems-nodeconf
+Architecture: all
+Depends: ${misc:Depends},
+         ${python3:Depends},
+         cuems-utils (>= 0.1.0rc5),
+         cuems-common (>= 1.0.0),
+         python3 (>= 3.11),
+         python3-netifaces,
+         python3-dbus,
+         python3-zeroconf,
+         python3-systemd (>= 235),
+         avahi-daemon,
+         avahi-utils
+Description: CUEMS node discovery + adoption daemon
+ cuems-nodeconf discovers CUEMS cluster nodes over avahi/zeroconf
+ (_cuems_nodeconf._tcp), elects controller vs node role, and maintains
+ /etc/cuems/network_map.xml (uuid, mac, ip, node_type, adopted, online)
+ as nodes appear and their IPv4LL addresses change.
+ .
+ On the controller it also publishes interface-scoped avahi aliases via the
+ D-Bus EntryGroup API: controller.local on the cluster interface and a UI
+ alias on the outward-facing interface. Scoping each A record to a single
+ interface avoids leaking the link-local cluster address onto the UI network
+ (RFC 6762 section 6.2).
+ .
+ This package installs into the /usr/lib/cuems/ virtual environment provided
+ by cuems-utils. The console script is installed at
+ /usr/lib/cuems/bin/cuems-nodeconf and is invoked by the systemd unit shipped
+ in cuems-common.

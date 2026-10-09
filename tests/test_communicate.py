@@ -3,7 +3,7 @@ Tests for communicate.py functionality.
 """
 import pytest
 from unittest.mock import MagicMock, patch
-from communicate import AsyncCommsThread
+from cuemsnodeconf.communicate import AsyncCommsThread
 
 
 class TestAsyncCommsThread:

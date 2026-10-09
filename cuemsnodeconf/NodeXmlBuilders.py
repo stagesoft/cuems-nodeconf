@@ -65,8 +65,26 @@ class node_listParser(GenericParser):
         return self.item_gp
 
 
+# Node fields that network_map.xsd types as strings (cms:NonEmptyString, or
+# xs:string for hostname). They must never be type-coerced.
+#
+# cuemsutils' str_to_value() guesses a value's Python type, so a node named
+# "none" decoded to None -> <name/> -> NonEmptyString violation (a hard save
+# error), and role_id "n" / alias "off" decoded to False, hostname "007" to 7 --
+# all three schema-valid, so they wrote to disk and silently replaced operator
+# data. cuemsutils shields free-text fields via STRING_TYPED_KEYS, but only when
+# the key is passed, and that set does not cover the node-identity fields.
+#
+# 'uuid', 'adopted' and 'online' are deliberately ABSENT: their coercion is
+# intended. uuid -> Uuid and adopted/online -> bool via strtobool are both relied
+# upon downstream (see CuemsNodeConf.get_nodes_by_adoption callers).
+STRING_TYPED_NODE_FIELDS = frozenset({
+    'name', 'node_type', 'ip', 'mac', 'role_id', 'alias', 'hostname',
+})
+
+
 class nodeParser(GenericParser):
-    """Custom parser for node class"""  
+    """Custom parser for node class"""
     def parse(self):
         Logger.debug(f"Parsing node with nodeParser")
         # Create a proper node object instead of GenericDict
@@ -76,8 +94,11 @@ class nodeParser(GenericParser):
                 if len(list(dict_value)) > 0:
                     parser_class, class_string = self.get_parser_class(dict_key)
                     node_obj[dict_key] = parser_class(init_dict=dict_value, class_string=class_string).parse()
+            elif dict_key in STRING_TYPED_NODE_FIELDS:
+                node_obj[dict_key] = dict_value
             else:
-                dict_value = self.str_to_value(dict_value)
+                # key= so cuemsutils' own STRING_TYPED_KEYS applies too.
+                dict_value = self.str_to_value(dict_value, key = dict_key)
                 node_obj[dict_key] = dict_value
         return node_obj
 

@@ -1,0 +1,47 @@
+#!/usr/bin/make -f
+
+export DH_VIRTUALENV_INSTALL_ROOT=/usr/lib
+
+%:
+	dh $@ --with python-virtualenv
+
+override_dh_virtualenv:
+	# Install into the shared venv at /usr/lib/cuems (created by cuems-utils)
+	dh_virtualenv --python python3 \
+		--install-suffix cuems \
+		--use-system-packages
+
+override_dh_auto_clean:
+	rm -rf build *.egg-info src/*.egg-info
+	find . -name '*.pyc' -delete
+	find . -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+	dh_auto_clean
+
+override_dh_fixperms:
+	# Remove .gitignore files installed by dh_virtualenv
+	find debian/cuems-nodeconf -name ".gitignore" -delete
+	# The venv bin/ must ship ONLY our entry point. Everything else (activate,
+	# pip, python, wheel, AND dependency-provided console scripts such as
+	# peewee's pwiz.py) is already provided by the cuems-utils venv and would
+	# file-conflict with that package at dpkg install time. Strip all but
+	# cuems-nodeconf.
+	find debian/cuems-nodeconf/usr/lib/cuems/bin -mindepth 1 -not -name 'cuems-nodeconf' -delete
+	rm -f debian/cuems-nodeconf/usr/lib/cuems/pyvenv.cfg
+	# site-packages must ship ONLY our own package. dh_virtualenv stages every
+	# dependency (cuemsutils, peewee + its standalone pwiz.py straggler,
+	# playhouse, lxml, pynng, dbus, zeroconf, systemd, pip/setuptools/wheel,
+	# *.so, *.pth, ...) but all of those are provided by the cuems-utils venv and
+	# the python3-* system packages we Depend on. Shipping private copies
+	# file-conflicts with cuems-utils at dpkg install time (pwiz.py was the
+	# canary). Strip everything except cuemsnodeconf* — robust against new
+	# stragglers, unlike an allow-list of dep names.
+	find debian/cuems-nodeconf/usr/lib/cuems/lib/python3.11/site-packages \
+		-mindepth 1 -maxdepth 1 -not -name 'cuemsnodeconf*' -exec rm -rf {} +
+	# Remove __pycache__ from installed tree
+	find debian/cuems-nodeconf -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+	find debian/cuems-nodeconf -name '*.pyc' -delete
+	find debian/cuems-nodeconf -name '*.pyo' -delete
+	dh_fixperms
+
+override_dh_auto_test:
+	# Skip pytest during package build (run separately in CI / locally)

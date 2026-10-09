@@ -2,8 +2,8 @@
 Tests for CuemsNodeConf initialization and basic setup.
 """
 import pytest
-from CuemsNodeConf import CuemsNodeConf
-from CuemsNode import CuemsNodeDict
+from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
+from cuemsnodeconf.CuemsNode import CuemsNodeDict
 
 
 class TestNodeConfInitialization:

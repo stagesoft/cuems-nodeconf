@@ -4,8 +4,8 @@ Tests the complete operation from engine callback to network map persistence.
 """
 import pytest
 from unittest.mock import MagicMock, patch, call
-from CuemsNodeConf import CuemsNodeConf
-from CuemsNode import CuemsNode, CuemsNodeDict
+from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
+from cuemsnodeconf.CuemsNode import CuemsNode, CuemsNodeDict
 import tempfile
 import os
 

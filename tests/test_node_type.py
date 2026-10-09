@@ -3,9 +3,9 @@ Tests for node type determination (master/slave/firstrun).
 """
 import pytest
 from unittest.mock import patch
-from CuemsNodeConf import CuemsNodeConf
-from CuemsNode import CuemsNode, CuemsNodeDict
-from CuemsAvahiListener import CuemsAvahiListener
+from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
+from cuemsnodeconf.CuemsNode import CuemsNode, CuemsNodeDict
+from cuemsnodeconf.CuemsAvahiListener import CuemsAvahiListener
 
 
 class TestNodeTypeDetermination:
@@ -61,9 +61,9 @@ class TestNodeTypeDetermination:
             'ip': '169.254.1.1',
         })
         
-        # Mock os.system for slave template copy
-        with patch('os.system', return_value=0):
+        # Slave template copy now uses shutil.copy2 (was os.system 'sudo cp').
+        with patch('shutil.copy2'):
             nodeconf.set_node_type()
-            
+
             assert nodeconf.node.node_type == CuemsNode.NodeType.slave
 

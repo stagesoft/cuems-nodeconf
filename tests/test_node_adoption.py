@@ -3,8 +3,8 @@ Tests for node adoption and unadoption functionality.
 """
 import pytest
 from unittest.mock import patch
-from CuemsNodeConf import CuemsNodeConf
-from CuemsNode import CuemsNode, CuemsNodeDict
+from cuemsnodeconf.CuemsNodeConf import CuemsNodeConf
+from cuemsnodeconf.CuemsNode import CuemsNode, CuemsNodeDict
 
 
 class TestNodeAdoption:

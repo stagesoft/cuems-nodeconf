@@ -2,7 +2,7 @@
 Tests for CuemsNodeDict properties (masters, slaves, firstruns).
 """
 import pytest
-from CuemsNode import CuemsNode, CuemsNodeDict
+from cuemsnodeconf.CuemsNode import CuemsNode, CuemsNodeDict
 
 
 class TestNodeDictProperties:
