@@ -532,7 +532,7 @@ class CuemsNodeConf():
         document is built from it for each pass and read back into it after, so
         an operator adoption made between passes is never lost to a stale copy.
         """
-        discovered = self.listener.nodes
+        discovered = self._without_foreign_controllers(self.listener.nodes)
         document = self._network_map_document()
         try:
             wrote = document.refresh(discovered, self.map_path)
@@ -562,6 +562,55 @@ class CuemsNodeConf():
             Logger.warning(f'Missing adopted nodes: {labels}')
         else:
             Logger.debug('All adopted nodes are present')
+
+    def _cluster_controller_uuids(self):
+        """The uuids of the controller(s) this host belongs to.
+
+        Several clusters share one LAN and every controller announces itself,
+        so only this cluster's controller may enter the map. On a controller
+        that is itself; on a node, whatever controller its map already records;
+        an empty set (fresh node, legacy map) means no scoping, first come.
+
+        INTERIM, ported from origin/rc_1 80ccc83 (0.1.0-8). The rule moves to
+        NodeIndex.cluster_controllers, and removing a controller an earlier
+        pass already saved needs the library too (D22) — both requested in
+        specs/upstream-reports/foreign-controller-scoping.md. When that lands,
+        this method and _without_foreign_controllers go, and refresh is called
+        with cluster=.
+        """
+        own = getattr(self, 'node', None)
+        if (own is not None
+                and own.get('node_role') is NodeRole.controller
+                and own.get('uuid')):
+            return {own.get('uuid')}
+        return {n.get('uuid') for n in self.network_map.controllers if n.get('uuid')}
+
+    def _without_foreign_controllers(self, discovered):
+        """discovered minus other clusters' controllers (interim; see above).
+
+        The node objects are passed through, not copied: the library's merge
+        relies on that aliasing (feature 002, tests/test_node_aliasing.py).
+        """
+        cluster = self._cluster_controller_uuids()
+        if not cluster:
+            return discovered
+        kept = {}
+        for key, n in discovered.items():
+            if n.get('node_role') is NodeRole.controller and n.get('uuid') not in cluster:
+                Logger.debug(
+                    f'Ignoring foreign controller {n.get("name")} '
+                    f'(uuid={n.get("uuid")}, ip={n.get("ip")}): not this cluster\'s controller'
+                )
+                continue
+            kept[key] = n
+        for n in self.network_map.controllers:
+            if n.get('uuid') not in cluster:
+                Logger.warning(
+                    f'network_map still holds foreign controller {n.get("name")} '
+                    f'(uuid={n.get("uuid")}); removing it needs cuemsutils '
+                    f'(specs/upstream-reports/foreign-controller-scoping.md)'
+                )
+        return kept
 
     def _network_map_document(self):
         """The persisted form of self.network_map: the kept document, refilled.
