@@ -135,3 +135,11 @@ debian/debhelper-build-stamp
 debian/*.debhelper
 debian/*.substvars
 debian/cuems-nodeconf/
+# Further build artifacts (absorbed from debian/bookworm's list)
+debian/*.deb
+debian/*.deb.*
+debian/*.build
+debian/*.buildinfo
+debian/*.changes
+debian/*.log
+debian/tmp/
