@@ -1,4 +1,4 @@
-cuems-nodeconf (0.1.0-8) UNRELEASED; urgency=medium
+cuems-nodeconf (0.1.1-1) UNRELEASED; urgency=medium
 
   * The Avahi discovery TXT record now carries node_role with the
     controller/node/firstrun vocabulary, replacing node_type with
@@ -34,8 +34,48 @@ cuems-nodeconf (0.1.0-8) UNRELEASED; urgency=medium
     start. After re-minting an identity, restart cuems-nodeconf. This node's
     own map row is seeded through cuemsutils' NodeIndex.ensure, which needs
     a cuems-utils build at 73daab6 or later inside 0.1.0rc16.
+  * Carries rc_1's 0.1.0-9 fix forward: a cluster link with a static
+    169.254.x address and no ':avahi' label is accepted (ported onto the
+    configurable interface wait).
+  * Carries rc_1's 0.1.0-8 fix forward in part: other clusters'
+    controllers heard on a shared LAN are kept out of the map at
+    discovery. Removing one an earlier pass already saved needs a
+    cuems-utils change and is logged as a warning until it lands.
 
- -- Ion Reguera <ion@stagelab.coop>  Thu, 17 Sep 2026 16:15:56 +0000
+ -- Adrià Masip <adria@stagelab.coop>  Tue, 13 Oct 2026 12:00:00 +0200
+
+cuems-nodeconf (0.1.0-9) unstable; urgency=medium
+
+  * Accept a cluster link with a STATIC link-local address. get_ips() only
+    looked for avahi-autoipd's labelled addresses (bridge0:avahi,
+    ethernet1:avahi), so on a cluster whose chain is pinned to static
+    169.254.0.x addresses (the alquiler1 hardware, now the taller `test`,
+    pinned so ProxyJump addresses never move) nodeconf never found its
+    cluster address. It now falls back to the plain bridge0 / ethernet1
+    address, and only if that address is link-local: a controller's AP
+    bridge (192.168.6.1) or a LAN address is never taken for the cluster
+    link. Boxes with the ':avahi' label behave exactly as before.
+    Regression tests added (tests/test_static_cluster_link.py).
+
+ -- Ion Reguera <ion@stagelab.coop>  Wed, 07 Oct 2026 20:06:43 +0200
+
+cuems-nodeconf (0.1.0-8) unstable; urgency=medium
+
+  * Keep only this cluster's controller in network_map. Several clusters
+    share one LAN (taller: test2, test, test3) and every controller
+    advertises node_type=master over mDNS; merge_discovered_nodes() took
+    every master it heard and set_master_always_adopted() then marked them
+    ADOPTED, so a controller's map (and the engine's adopted-node set)
+    gained peer controllers from other clusters. A controller now accepts
+    only itself as master, a node only the master its map already records
+    (a map with no master keeps the first-come behaviour); foreign
+    controllers are ignored on discovery and purged if an earlier pass had
+    persisted them. Regression tests added.
+  * Includes the unreleased hardening since 0.1.0-7: answer every IPC
+    request, serialize the three map writers under one lock, stop coercing
+    string-typed node fields on XML read.
+
+ -- Ion Reguera <ion@stagelab.coop>  Tue, 06 Oct 2026 12:45:00 +0200
 
 cuems-nodeconf (0.1.0-7) unstable; urgency=medium
 
