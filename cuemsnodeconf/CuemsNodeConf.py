@@ -925,13 +925,6 @@ class CuemsNodeConf():
         else:
             Logger.debug("we have no nodes")
 
-    def check_first_run(self):
-        for node in self.listener.nodes.by_role(NodeRole.firstrun):
-            if node.get('ip') == self.ip:
-                return True
-
-        return False
-    
     def wait_for_local_service_registration(self):
         """
         Wait for the local service to be registered and discovered by the Avahi listener.

@@ -1,4 +1,4 @@
-"""Utilites to call the hardware discovery tool."""
+"""The engine IPC: the nng responder on /tmp/nodeconf.ipc that answers the engine's requests."""
 from cuemsutils.log import logged, Logger
 from cuemsutils.tools.CommunicatorServices import Communicator
 import threading
