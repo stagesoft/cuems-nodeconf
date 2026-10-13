@@ -1,6 +1,8 @@
 <!-- VENDORED from cuems-utils@b7598d5 specs/planning/nodeconf-atomization.md
      Stale feature number 009 -> 010 corrected. Do not edit to diverge. -->
 
+> **Status (2026-10-13): STILL THE BASIS, BUT OUT OF DATE — rows 5 and 10 are done and the class has grown responsibilities this table does not list. Read `13-atomization-remeasured.md` with it.** See `README.md` for the index.
+
 # `cuems-nodeconf` atomization basis (T051)
 
 Written as the target-design basis for a **future, dedicated `cuems-nodeconf` feature** — this

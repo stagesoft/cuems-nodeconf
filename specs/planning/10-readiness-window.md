@@ -3,6 +3,8 @@ SPDX-FileCopyrightText: 2026 Stagelab Coop SCCL
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
+> **Status (2026-10-13): SUPERSEDED — implemented by feature `003-startup-readiness`. Kept in place because sibling repositories link to it.** See `README.md` for the index.
+
 # Feature brief — the start-up readiness window, and the startup-analysis backlog
 
 **Written** 2026-09-28, measured against `feat/xml-refactor` @ `2e2ae40`

@@ -5,6 +5,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # cuems-nodeconf's gate report for cuems-utils feature 014
 
+> **Status (2026-10-13): CLOSED — kept as a record.** `cuems-utils` closed T030 and T033 against
+> this report, and turned §3.2 into its own defect document
+> (`specs/planning/settings-reshape-defeats-f3-conversion-defect.md`, gate **G5** of its feature
+> 015). Nothing is owed here: the fixtures were rewritten by hand in `61c5705`, so G5's fix needs no
+> follow-up in this repository. Do not move this file: both upstream documents cite it by path.
+
 **For**: `cuems-utils` specs/014-xs-boolean-and-media-elements/, task T033 (record every sibling
 arm, including any left red and why) and T030 (this repository's own gate).
 **From**: `cuems-nodeconf`, branch `feat/xml-refactor`, commits `4d7c91d` and `61c5705`.

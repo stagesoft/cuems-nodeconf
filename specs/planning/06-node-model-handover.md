@@ -1,5 +1,7 @@
 <!-- VENDORED from cuems-utils@b7598d5 specs/007-node-model-migration/migration-guide.md §§4, 4a -->
 
+> **Status (2026-10-13): SUPERSEDED — confirmed in feature 001.** See `README.md` for the index.
+
 # Feature 007's handover — CONFIRM, do not redo (FR-030a-i)
 
 ## 4. The moved-symbol table (T084)

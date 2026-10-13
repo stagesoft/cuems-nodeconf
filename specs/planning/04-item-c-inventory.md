@@ -1,5 +1,7 @@
 <!-- VENDORED from cuems-utils@b7598d5 specs/008-rebuild-extension/migration-guide.md, ITEM C -->
 
+> **Status (2026-10-13): SUPERSEDED — T052 implemented in feature 001; T050's `cleanup()` no longer exists.** See `README.md` for the index.
+
 # ITEM C — this repository's inventory, from feature 008's migration guide
 
 ## ITEM C — the network-map object moves in from `cuems-nodeconf`

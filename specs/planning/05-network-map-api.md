@@ -1,5 +1,7 @@
 <!-- VENDORED from cuems-utils@b7598d5 specs/008-rebuild-extension/data-model.md §5 -->
 
+> **Status (2026-10-13): SUPERSEDED — adopted in feature 001. `cuems-utils`' `NodeList.py` is the authority on this API now.** See `README.md` for the index.
+
 ## 5. The network-map object (ITEM C) — landed (T037–T052)
 
 `NodeIndex` is already the MAC-keyed working set feature 007 created, which is the same shape

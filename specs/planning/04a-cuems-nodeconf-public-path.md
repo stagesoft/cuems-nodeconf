@@ -10,6 +10,8 @@
          CuemsNetworkMapType from ConfigManager.network_map, and the empty <node_list/>
          conffile at debian/install:204. NOT IMPLEMENTED — read and validated only. -->
 
+> **Status (2026-10-13): SUPERSEDED — implemented by feature `002-public-network-map-path`.** See `README.md` for the index.
+
 # Feature 010 — `cuems-nodeconf`: close the last internal import
 
 **Status:** ready to run — **follow-up to [04-cuems-nodeconf](04-cuems-nodeconf.md)**, not a new flow

@@ -3,6 +3,8 @@ SPDX-FileCopyrightText: 2026 Stagelab Coop SCCL
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
+> **Status (2026-10-13): HISTORICAL — one item still open: runtime issue 5 (controller election), its own feature.** See `README.md` for the index.
+
 # CUEMS NodeConf Startup Analysis
 
 > **Relocated** from the repository root by feature `003-startup-readiness` (2026-09-28). The

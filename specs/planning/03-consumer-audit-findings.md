@@ -4,6 +4,8 @@
      place the TimeoutLoop relocation was first recorded; that document is NOT reproduced here
      because C10 and 07-public-surface.md together carry everything it says about this repo. -->
 
+> **Status (2026-10-13): SUPERSEDED — C4, C6, C9 and C10 are all implemented (features 001/002; `TimeoutLoop` moved).** See `README.md` for the index.
+
 # Consumer-audit findings that belong to `cuems-nodeconf`
 
 Measured against live files **2026-09-03**. Re-verify line numbers before relying on them —

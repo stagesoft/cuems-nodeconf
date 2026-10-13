@@ -3,6 +3,8 @@
      Three corrections applied on vendoring — see ../README.md "Corrections applied".
      Do not edit to diverge: fix the original and re-vendor. -->
 
+> **Status (2026-10-13): SUPERSEDED — executed as feature `001-network-map-object-adoption`.** See `README.md` for the index.
+
 # Feature 010 — `cuems-nodeconf`: adopt the network-map object, rename the discovery wire
 
 **Status:** ready to run — **pairs with [03-cuems-common](03-cuems-common.md)**

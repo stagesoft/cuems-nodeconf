@@ -4,6 +4,8 @@
      (cuems-utils d0340fc), cuems-common feat/xml-refactor e149089, cuems-engine as
      checked out that day. Re-measure before relying on any coordinate. -->
 
+> **Status (2026-10-13): SUPERSEDED — implemented by feature `003-startup-readiness` (`_seed_own_row`, `NodeIndex.ensure`). §7's provisioning requirements belong to other repositories.** See `README.md` for the index.
+
 # Self-node seeding — can nodeconf fill in its own entry at start-up?
 
 ## The question

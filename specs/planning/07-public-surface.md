@@ -2,6 +2,8 @@
      specs/010-consumer-migration/contracts/descriptor-access.md and
      specs/010-consumer-migration/migration-guide.md §§1-2. Wave 0 LANDED 2026-09-07. -->
 
+> **Status (2026-10-13): SUPERSEDED — the pins and the public imports landed (features 001/002).** See `README.md` for the index.
+
 # The public surface this repository migrates onto
 
 Feature 010's **wave 0 has landed** in `cuems-utils`. What this repository imports internally today

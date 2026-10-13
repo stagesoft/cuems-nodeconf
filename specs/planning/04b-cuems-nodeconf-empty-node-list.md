@@ -9,6 +9,8 @@
        - this repository's gate: 95 + 15 green; __version__ still 0.1.0rc16.
      Outstanding for this repository: their section 3 (add an empty-map fixture). -->
 
+> **Status (2026-10-13): SUPERSEDED — fixed upstream; the empty-map fixture (`tests/fixtures/etc_cuems/network_map_empty.xml`) and `tests/test_fresh_node_boot.py` close §3.** See `README.md` for the index.
+
 # Feature 010 — `cuems-nodeconf`: your empty-`node_list` report is fixed upstream
 
 **Status:** answer to an upstream report — **no work required in this repository beyond a rebuild**

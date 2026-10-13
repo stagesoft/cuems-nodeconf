@@ -2,6 +2,8 @@
      specs/planning/xml-rebuild/xml-rebuild-07-speckit-prompts.md §2 (D1-D36, Q11, Q14)
      Only the decisions that BIND this repository are reproduced. -->
 
+> **Status (2026-10-13): PARTLY IN FORCE — D11, D22, D34, Q14 and FR-030a-i/ii still bind; D33 is executed; D23 bound feature 010 only, and a dedicated atomization feature needs the maintainer to lift it explicitly.** See `README.md` for the index.
+
 # Settled decisions that bind `cuems-nodeconf`
 
 **Do not reopen, do not propose alternatives.** These were settled across features 004–010 of the

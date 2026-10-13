@@ -4,6 +4,8 @@
      against feat/xml-refactor with that deletion applied (CuemsNodeConf.py = 792 lines).
      Re-measure before relying on any coordinate here. -->
 
+> **Status (2026-10-13): REFERENCE, STILL VALID — signal 3 (`check_first_run()`) was deleted on 2026-10-13 (`80c1d5d`).** See `README.md` for the index.
+
 # "First run" in `cuems-nodeconf` — three signals, one word
 
 ## Why this file exists
