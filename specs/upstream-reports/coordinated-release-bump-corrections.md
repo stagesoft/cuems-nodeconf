@@ -35,18 +35,28 @@ Each one, if let through, gives a half-renamed pair: the listener reads `node_ro
 writes `node_type`, and the cluster discovers nothing, with no install error. The plan's §4 matrix
 already fixes both. Only the measurement was missing.
 
-## 3. What `cuems-nodeconf` does about it (step 4 of §11)
+## 3. What `cuems-nodeconf` did about it (step 4 of §11) — done 2026-10-13
 
-- **Merges `origin/rc_1` and `origin/debian/bookworm`** into `feat/xml-refactor`. The `rc_1`
-  changelog entries `0.1.0-8`/`-9` are kept word for word (§10.1 rule 1).
-- **Headers the branch's own entry as `0.1.1-1 UNRELEASED` during that merge**, folding in the old
+- **Merged `origin/rc_1` (`78e7290`) and `origin/debian/bookworm` (`952b9dd`)** into
+  `feat/xml-refactor`, which is now 0 behind both. The `rc_1` changelog entries `0.1.0-8`/`-9` are
+  kept word for word (§10.1 rule 1). Each merge commit message records what happened to every
+  absorbed commit.
+- **`debian/bookworm`'s maintainer scripts were not absorbed.** Its `postinst` enables **and
+  starts** `cuems-nodeconf` and copies `network_map.xsd` into `/etc/cuems`. The rc_1 packages
+  `0.1.0-2`…`-9` never shipped maintainer scripts, so nothing in the field is lost.
+- **A second, older collision**: `debian/bookworm` released a `0.1.0-1` (entry dated 19 Dec 2024,
+  committed 2025-12-19; it is the `.deb` cached in `rc1_packages/`). The `0.1.0-1 UNRELEASED` entry
+  that rc_1's `-2`…`-9` history starts from is a different build. The changelog keeps rc_1's history,
+  because it is exactly what the shipped `-2`…`-9` packages carry. Both `-1` builds sort below
+  `0.1.1-1`, so neither affects the bump.
+- **Headed the branch's own entry `0.1.1-1 UNRELEASED` during the merge**, folding in the old
   `0.1.0-8 UNRELEASED` body (§10.1 rule 2). This is a maintainer decision (2026-10-13), taken so the
   changelog never runs backwards between the merge and the coordinated step 6.
   `debian/control`, `pyproject.toml` and every relation stay untouched until step 6.
-- **Two fixes from `rc_1` need a different home on this line.** `141cf1f` (static link-local
-  cluster address) is ported here. `80ccc83` (foreign controllers) needs this library's merge:
+- **Two fixes from `rc_1` needed a different home on this line.** `141cf1f` (static link-local
+  cluster address) is ported as `16b207d`. `80ccc83` (foreign controllers) needs this library's merge:
   `../cuems-nodeconf/specs/upstream-reports/foreign-controller-scoping.md` is the request. Until it
-  lands, the daemon ships an interim filter, and the release is not complete for this item
+  lands, the daemon ships an interim filter (`6afb5eb`), and the release is not complete for this item
   (rule 4).
 
 ## 4. For `hardware-outputs-capability-layer.md` §1, finding 2
