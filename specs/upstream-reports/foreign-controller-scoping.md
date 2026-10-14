@@ -5,6 +5,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Request to `cuems-utils` — keep another cluster's controller out of a network map
 
+> **Status (2026-10-14): CLOSED — landed in `cuems-utils` `38d2ede` (2026-10-14, inside its `0.1.1` section); wired into this daemon in `155fe6c`. The interim filter (`6afb5eb`) is gone.**
+
 **From**: `cuems-nodeconf`, branch `feat/xml-refactor`.
 **For**: `cuems-utils`, to land **after feature 015's work is done** and **inside `0.1.1`**, the
 coordinated release (`specs/planning/coordinated-release-version-bump.md`). Both conditions are

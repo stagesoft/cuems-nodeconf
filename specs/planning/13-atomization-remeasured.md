@@ -2,6 +2,8 @@
 SPDX-FileCopyrightText: 2026 Stagelab Coop SCCL
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
+> **Updated 2026-10-14**: rows 3 and 10 changed (foreign-controller scoping `155fe6c`, `node_set` `3d3601d`); line numbers below are from 2026-10-13 and have moved.
+
 <!-- REPO-ORIGINAL — not vendored. Written 2026-10-13 against feat/xml-refactor @ 80c1d5d
      (CuemsNodeConf.py = 1091 lines). Re-measure before relying on any coordinate here. -->
 
@@ -25,14 +27,14 @@ copy should become a pointer here rather than a second copy that drifts.
 |---|---|---|---|
 | 1 | Daemon lifecycle | `start` :161, `stop` :133, `run` :433, `_run_worker_loop` :654, `notify_systemd` :687, `_configured_seconds`/`_iface_timeout`/`_controller_pause` :177–195 | Unchanged in role. Owns the start-up order (`contracts/startup-order.md`, feature 003) |
 | 2 | Network interface discovery | `get_ips` :691 | **Interface names still hard-coded** (`bridge0:avahi`, `ethernet1:avahi`, `bond0`). `origin/rc_1`'s `141cf1f` (a static link-local cluster address) is being ported in step 0c |
-| 3 | Avahi/mDNS listener orchestration | `start_avahi_listener` :727, `on_node_event` :681, `callback` :908, `check_nodes` :913, `wait_for_local_service_registration` :928, `retreive_local_node` :944 | `check_first_run` deleted (`80c1d5d`). **Gains discovery filtering**: `origin/rc_1`'s `80ccc83` drops other clusters' controllers heard on a shared LAN, and its nodeconf half belongs here (filter `discovered` before `refresh`) |
+| 3 | Avahi/mDNS listener orchestration | `start_avahi_listener` :727, `on_node_event` :681, `callback` :908, `check_nodes` :913, `wait_for_local_service_registration` :928, `retreive_local_node` :944 | `check_first_run` deleted (`80c1d5d`). **Gains `_cluster`** (`155fe6c`): computes this host's cluster controllers with the library and logs the foreign ones; the filtering and removal happen in `refresh(cluster=)` (D22) |
 | 4 | Node role election | `set_node_role` :757, `_should_resume_master` :732, `_live_record_role` :263 | Still first-come, with no protocol. **Runtime issue 5** (`11-startup-analysis.md`) is open and is its own feature |
 | 5 | Network-map domain/config logic | `refresh_network_map` :526, `_network_map_document` :566, `_index_from_document` :646, `_save_network_map` :782, `adopt_node` :804, `unadopt_node` :827, `_find_node` :801, `read_network_map` :849 | **Done** (D22). What is left here is thin orchestration over `NodeIndex`/`CuemsNetworkMapType` |
 | 6 | OS network reconfiguration | `change_network_to_master` :1041, `change_network_settings_to_master` :1083 | Unchanged. Still the daemon's most destructive path (`CLAUDE.md`) |
 | 7 | Avahi service record | `_render_service_record` :303, `_install_master_service_template` :753, `_reload_avahi` :286 | **Changed in kind.** Feature 003 replaced the file copy with a render from `settings.xml` (the identity), so it now depends on row 11 |
 | 8 | mDNS alias publishing | `publish_aliases_if_master` :984, `_ui_alias` :975 | Unchanged |
 | 9 | Master lock file | `update_master_lock_file` :1024 | Unchanged |
-| 10 | Engine IPC dispatch | `set_comms` :363, `engine_callback` :368 | **Done as a thin translator** (001). Gained the readiness refusal (003). **Will gain `node_set`** once `cuems-utils` 015's `NodeIndex.set_alias` lands — not before (see `README.md`, "Waiting") |
+| 10 | Engine IPC dispatch | `set_comms` :363, `engine_callback` :368 | **Done as a thin translator** (001). Gained the readiness refusal (003). **Gained `node_set`** (`3d3601d`): `_node_set` validates, `alias_node` delegates to `NodeIndex.set_alias` |
 
 ## 2. Rows the inventory does not have
 

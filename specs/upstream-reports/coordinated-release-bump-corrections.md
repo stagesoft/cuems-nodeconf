@@ -5,6 +5,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Corrections to `coordinated-release-version-bump.md` — the `cuems-nodeconf` rows
 
+> **Status (2026-10-14): CLOSED — folded into `coordinated-release-version-bump.md` (§1, §1.1, §9, §10.2) and `hardware-outputs-capability-layer.md` (§1 finding 2) by 2026-10-14. §5's missing file now exists (`specs/planning/12-node-set-alias.md`) and is implemented.**
+
 **For**: `cuems-utils` `specs/planning/coordinated-release-version-bump.md` (decided 2026-10-12,
 measured the same day). Also one finding for `hardware-outputs-capability-layer.md`.
 **From**: `cuems-nodeconf`, `feat/xml-refactor`, measured 2026-10-13 after `git fetch origin`.
