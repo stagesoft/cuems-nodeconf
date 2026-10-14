@@ -6,7 +6,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # Contract — the readiness refusal over `/tmp/nodeconf.ipc`
 
 **Parties.** `cuems-nodeconf` (responder) and `cuems-engine` (requester), which relays to
-`cuems-editor` and on to `cuems-frontend`'s settings page.
+`cuems-editor` and on to `cuems-frontend`'s settings page. *Amended 2026-10-14:* for `node_set`,
+`cuems-editor` is a **direct** requester; the engine is not a party
+(`specs/planning/12-node-set-alias.md`, R5).
 
 ## Shape — unchanged
 
@@ -18,14 +20,18 @@ return. No raised exception reaches the socket (constitution IV).
 | Condition | Response |
 |---|---|
 | `action == 'nodelist_modify'` and the daemon has not finished loading its map | `{'OK': False, 'error': 'nodeconf is still starting up'}` |
+| `action == 'node_set'` and the same (*amended 2026-10-14*) | the same response |
 
 The string is exact and stable. It never contains `not found` and never contains a uuid. It is the
-**only** response an adopt or unadopt can receive between the socket's creation and the map's load.
+**only** response an adopt, unadopt or `node_set` can receive between the socket's creation and the
+map's load.
 
 ## What is not gated
 
 Unknown actions, missing actions and non-dict bodies are answered as before, at any time:
-`{'OK': False, 'error': 'unknown action: …'}` and the existing exception path.
+`{'OK': False, 'error': 'unknown action: …'}` and the existing exception path. *Amended
+2026-10-14:* `nodelist_modify` and `node_set` are the two gated actions; nothing else is.
+`node_set`'s own responses after readiness are in `specs/planning/12-node-set-alias.md` §3.
 
 ## After readiness
 

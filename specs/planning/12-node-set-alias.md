@@ -5,6 +5,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # `node_set` — the operator's node alias, written by the map's only writer
 
+> **Status (2026-10-14): IMPLEMENTED** — see §10. Owed: the hardware check and telling `cuems-editor`.
+
 **Repo-original, not vendored.** A ready-to-implement brief, written 2026-10-08. It covers one new
 IPC action and one handler method, together with their tests and verification. It is not run
 through the full spec-kit flow:
@@ -219,8 +221,17 @@ Gate).
 
 ## 10. Done when
 
-- [ ] `cuemsutils` with `NodeIndex.set_alias` is installed here, with its commit recorded.
-- [ ] §5a and §5b landed; §5c amendments written.
-- [ ] Every §6 test written first, seen failing, then green; the full suite green.
-- [ ] §7's dispatch-path check run; the hardware check run, or recorded as not run.
-- [ ] `cuems-editor` told the contract is live (the response to its UR-8).
+- [x] `cuemsutils` with `NodeIndex.set_alias` is installed here, with its commit recorded:
+      `cuems-utils` `feat/xml-refactor` @ `38d2ede` (015 merged at `4d1ff70`), editable install,
+      `__version__` still `0.1.0rc16`.
+- [x] §5a and §5b landed (`_node_set`, `alias_node`); §5c amendments written
+      (`specs/003-startup-readiness/contracts/readiness-response.md`, the `engine_callback` comment).
+- [x] Every §6 test written first, seen failing (17 of 20 before the handler), then green; the full
+      suite green (206 passed). All §6 rows are in one file, `tests/test_node_set.py`, rather than
+      spread over `test_engine_callback.py`, `test_node_aliasing.py` and `test_network_map.py`.
+      Refusal text for foreign keys: the keys joined by `", "`, sorted.
+- [x] §7's dispatch-path check run: `test_dispatch_path_over_a_real_ipc_socket`, a `Req0` client
+      against the real `AsyncCommsThread` on a temporary socket. **The hardware check was not
+      performed**; it is owed in `specs/002-public-network-map-path/checklists/hardware-verification.md` §7a.
+- [ ] `cuems-editor` told the contract is live (the response to its UR-8). **Not done here**: it is
+      outward-facing and is the maintainer's to send.

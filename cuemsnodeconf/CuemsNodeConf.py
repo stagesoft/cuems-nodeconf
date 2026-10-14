@@ -366,7 +366,7 @@ class CuemsNodeConf():
         self.communications_thread.start()
 
     def engine_callback(self, message, context):
-        """Handle one request from the engine over /tmp/nodeconf.ipc.
+        """Handle one request from the engine or the editor over /tmp/nodeconf.ipc.
 
         EVERY path must answer. This is an NNG Req/Rep socket: a request we
         return from without responding leaves the engine blocked until its own
@@ -386,7 +386,8 @@ class CuemsNodeConf():
                     # not loaded yet, so any answer about a node would be a
                     # guess. Same response shape, a string that cannot be
                     # read as "the node is absent"; the consumers relay it
-                    # verbatim (decision D). Only this branch is gated.
+                    # verbatim (decision D). This branch and node_set are
+                    # gated; every other request is answered as before.
                     Logger.info(f'nodeconf is still starting up; refusing {modify_action} for {node_uuid}')
                     asyncio.run_coroutine_threadsafe(
                         self.communications_thread.respond_to_engine(
@@ -407,6 +408,18 @@ class CuemsNodeConf():
                 if 'error' in result:
                     response['error'] = result['error']
                 
+                asyncio.run_coroutine_threadsafe(
+                    self.communications_thread.respond_to_engine(response, context),
+                    self.communications_thread.event_loop
+                )
+                return
+
+            if action == 'node_set':
+                # The operator's node alias, sent by cuems-editor directly
+                # (specs/planning/12-node-set-alias.md). Gated like
+                # nodelist_modify: before the map is loaded, "not found"
+                # would be a guess (feature 003).
+                response = self._node_set(message)
                 asyncio.run_coroutine_threadsafe(
                     self.communications_thread.respond_to_engine(response, context),
                     self.communications_thread.event_loop
@@ -870,6 +883,54 @@ class CuemsNodeConf():
             return {'OK': True, 'message': 'Node already adopted'}
         self._save_network_map()
         Logger.info(f'Node {node_uuid} adopted')
+        return {'OK': True}
+
+    NODE_SET_KEYS = frozenset({'action', 'node_uuid', 'alias'})
+
+    def _node_set(self, message):
+        """Check a node_set request in the brief's order, then label the node.
+
+        specs/planning/12-node-set-alias.md section 3: readiness, foreign keys,
+        a missing alias, the uuid, the alias's type — every refusal before
+        anything changes. A write failure raises into engine_callback's
+        exception path, which answers with its text.
+        """
+        if not self._ready:
+            Logger.info(f'nodeconf is still starting up; refusing node_set for {message.get("node_uuid")}')
+            return {'OK': False, 'error': 'nodeconf is still starting up'}
+        extra = sorted(set(message) - self.NODE_SET_KEYS)
+        if extra:
+            return {'OK': False, 'error': f'node_set accepts only alias; refused: {", ".join(extra)}'}
+        if 'alias' not in message:
+            return {'OK': False, 'error': 'node_set needs an alias (null clears it)'}
+        node_uuid = message.get('node_uuid')
+        if not isinstance(node_uuid, str):
+            return {'OK': False, 'error': f'node_set needs a node uuid, got {node_uuid!r}'}
+        alias = message['alias']
+        if alias is not None and (not isinstance(alias, str) or not alias.strip()):
+            return {'OK': False, 'error': 'alias must be a non-empty string or null'}
+        return self.alias_node(node_uuid, alias)
+
+    def alias_node(self, node_uuid, alias):
+        """Set or clear a node's operator alias through NodeIndex.set_alias.
+
+        Modelled on adopt_node: the library mutates in place and does not
+        persist; "unchanged" is the signature not moving (no write); a real
+        change is saved before the answer. No mDNS step: the operator alias
+        is never published (12-node-set-alias.md, R3).
+        """
+        before = self.network_map.signature()
+        try:
+            found = self.network_map.set_alias(node_uuid, alias)
+        except ValueError as e:
+            return {'OK': False, 'error': str(e)}          # nothing changed (R9)
+        if not found:
+            Logger.warning(f'Node {node_uuid} not found in network_map')
+            return {'OK': False, 'error': f'Node {node_uuid} not found'}
+        if self.network_map.signature() == before:
+            return {'OK': True}
+        self._save_network_map()
+        Logger.info(f'Node {node_uuid} alias {"cleared" if alias is None else "set"}')
         return {'OK': True}
 
     def unadopt_node(self, node_uuid):

@@ -137,6 +137,32 @@ page must show it as-is.
 **Record**: date, host, the daemon's version, the text the page showed for the first click, and the
 journal lines from step 4.
 
+## 7. `node_set` and foreign-controller scoping, on hardware (added 2026-10-14)
+
+- [ ] **7a. `node_set` from the editor UI — not performed.**
+- [ ] **7b. Foreign controllers on a shared LAN — not performed.**
+
+**Why it is here.** Both landed on 2026-10-14 with tests through the real dispatch path, including
+a `node_set` round trip over a real IPC socket (`tests/test_node_set.py`). Constitution IV still
+asks for the operator's own path, and 7b's failure only appears with several clusters on one LAN.
+
+**7a, on the formitgo controller (this daemon enabled), from the editor UI**
+(`specs/planning/12-node-set-alias.md` §7):
+
+1. Label a node.
+2. Confirm `<alias>` is in `/etc/cuems/network_map.xml`.
+3. Un-adopt and re-adopt another node, and confirm the label survived that write.
+4. Confirm the label shows in every open UI.
+
+**7b, in the workshop (test2, test and test3 on one LAN), with this build on one controller:**
+
+1. With a `network_map.xml` that already holds another cluster's controller as adopted (as on test2
+   on 2026-10-06), start the daemon. The journal shows `Dropping foreign controller … belongs to
+   another cluster`, and the row is gone from the file after the first pass.
+2. Over the next passes, no other cluster's controller reappears in the file.
+
+**Record**: date, host, the daemon's version, and the journal lines or file excerpts for each step.
+
 ## Related records
 
 - Feature 002's [evidence/verification-record.md](../evidence/verification-record.md) — what *was* verified.

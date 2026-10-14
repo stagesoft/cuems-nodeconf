@@ -37,10 +37,15 @@ cuems-nodeconf (0.1.1-1) UNRELEASED; urgency=medium
   * Carries rc_1's 0.1.0-9 fix forward: a cluster link with a static
     169.254.x address and no ':avahi' label is accepted (ported onto the
     configurable interface wait).
-  * Carries rc_1's 0.1.0-8 fix forward in part: other clusters'
-    controllers heard on a shared LAN are kept out of the map at
-    discovery. Removing one an earlier pass already saved needs a
-    cuems-utils change and is logged as a warning until it lands.
+  * Carries rc_1's 0.1.0-8 fix forward: other clusters' controllers heard
+    on a shared LAN are kept out of the map, and any an earlier pass saved
+    are removed. The rule and the removal now live in cuems-utils
+    (NodeIndex.cluster_controllers, refresh(cluster=)).
+  * New IPC action node_set: cuems-editor sets or clears a node's operator
+    alias, which this daemon persists as the map's only writer. Refused
+    before the map is loaded ('nodeconf is still starting up'), for any
+    field other than alias, and for an empty alias; no write when the
+    value is unchanged. The alias is not published over mDNS.
 
  -- Adrià Masip <adria@stagelab.coop>  Tue, 13 Oct 2026 12:00:00 +0200
 
