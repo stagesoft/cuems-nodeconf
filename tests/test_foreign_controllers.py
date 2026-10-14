@@ -9,12 +9,12 @@ controller announces itself over mDNS. A host's map must only ever hold ITS
 cluster's controller: on 2026-10-01 test2's nodeconf merged test3 into its map
 and marked it adopted.
 
-The four scenarios are origin/rc_1 80ccc83's regression tests, translated to
-this branch, where the merge is cuemsutils' (D22). Keeping new foreign
-controllers out is done here, as an interim filter on what discovery hands to
-refresh. Removing one an earlier pass already saved needs the library, and is
-the strict xfail at the bottom; see
-specs/upstream-reports/foreign-controller-scoping.md.
+The scenarios are origin/rc_1 80ccc83's regression tests, translated to this
+branch, where the merge is cuemsutils' (D22): the daemon computes its cluster
+with NodeIndex.cluster_controllers and passes it to refresh(cluster=), which
+ignores foreign controllers and removes any already saved
+(specs/upstream-reports/foreign-controller-scoping.md, landed in cuems-utils
+38d2ede).
 """
 import re
 
@@ -112,7 +112,7 @@ def test_a_fresh_node_with_no_recorded_controller_accepts_the_first_one(tmp_path
     assert controller['adopted'] is True
 
 
-def test_the_filter_passes_node_objects_through_uncopied(tmp_path):
+def test_a_scoped_pass_keeps_discovered_node_objects_uncopied(tmp_path):
     # The library's merge relies on aliasing (tests/test_node_aliasing.py).
     own = _controller(OUR_CONTROLLER, 'aabbccddeeff', '169.254.0.1', adopted=True, online=True)
     nodeconf = _nodeconf(tmp_path, own)
@@ -122,17 +122,12 @@ def test_the_filter_passes_node_objects_through_uncopied(tmp_path):
     nodeconf.listener.nodes['controller-2._'] = _controller(
         FOREIGN_1, 'controller-2._', '10.16.10.4', online=True)
 
-    kept = nodeconf._without_foreign_controllers(nodeconf.listener.nodes)
+    nodeconf.refresh_network_map()
 
-    assert kept['112233445566'] is discovered_node
-    assert 'controller-2._' not in kept
+    assert nodeconf.network_map['112233445566'] is discovered_node
+    assert nodeconf.network_map['aabbccddeeff'] is own
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason='removing a saved foreign controller needs cuemsutils '
-           '(specs/upstream-reports/foreign-controller-scoping.md, T3/T4)',
-)
 def test_a_controller_removes_a_foreign_controller_saved_earlier(tmp_path):
     # A map written by an unfiltered pass already holds a peer controller as
     # adopted (test2's real map on 2026-10-06). It must be removed, not just
@@ -151,3 +146,18 @@ def test_a_controller_removes_a_foreign_controller_saved_earlier(tmp_path):
 
     assert _uuids(nodeconf) == {OUR_CONTROLLER}
     assert not re.search(FOREIGN_2, open(nodeconf.map_path).read())
+
+
+def test_an_unscoped_node_takes_every_controller_it_hears(tmp_path):
+    # The stated limitation (foreign-controller-scoping.md section 5): with no
+    # controller in its map, a fresh node accepts every controller of its first
+    # pass. Pinned so the day a join protocol fixes it, this test says so.
+    nodeconf = _nodeconf(tmp_path, _node())
+    nodeconf.listener.nodes['controller._'] = _controller(
+        OUR_CONTROLLER, 'controller._', '169.254.0.1', online=True)
+    nodeconf.listener.nodes['controller-2._'] = _controller(
+        FOREIGN_1, 'controller-2._', '10.16.10.4', online=True)
+
+    nodeconf.refresh_network_map()
+
+    assert {OUR_CONTROLLER, FOREIGN_1} <= _uuids(nodeconf)
