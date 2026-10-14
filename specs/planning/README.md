@@ -13,7 +13,7 @@ link to some of them by path (`09`, `10`), and in-repo specs link to most of the
 |---|---|---|
 | `13-atomization-remeasured.md` | **Current basis** | Planning any structural change to `CuemsNodeConf`, the identity chain, the hardware probe/transcription, or the election protocol. It also records this repository's acceptance of the hardware obligation |
 | `01-atomization-basis.md` | Still the basis, out of date | With `13`. It is the vendored ten-row inventory `13` re-measures |
-| `02-settled-decisions.md` | Partly in force | Before proposing anything that touches the map, the node model or the public imports. D23 needs the maintainer to lift it before an atomization feature |
+| `02-settled-decisions.md` | Partly in force | Before proposing anything that touches the map, the node model or the public imports. D23 was lifted on 2026-10-14; the atomization still waits for the coordinated bump |
 | `08-firstrun-signals.md` | Reference | Before adding any first-boot behaviour |
 | `11-startup-analysis.md` | Historical, one item open | The only written boot-order narrative. Runtime issue 5 (election) is open |
 | `yardstick/test_nodeindex_characterization.py` | **Live gate** | Always: `./run-tests.sh` runs it. Read-only; change it in `cuems-utils` and re-vendor |
@@ -46,14 +46,17 @@ the order, not this table.
 
 | # | Feature | Status | Hard dependencies | Start from |
 |---|---|---|---|---|
-| **004** | **`nodeconf-atomization`** — extract rows 2, 3, 7, 8, 9 and 11 into their own classes; row 4 gets its collaborators passed in; interface names become configuration. **No behaviour change**: the suite and the yardstick pass unedited | **Ready** once **D23 is lifted** (maintainer, in `02-settled-decisions.md`) | none else | `13-atomization-remeasured.md` §1–§4, `01`, `11` (boot order) |
-| **005** | **`node-identity-apply`** — `<role_id>` on adoption; the OS identity chain (hostnamectl, `/etc/hosts`, `avahi-daemon.conf`); `cuems-nodeconf apply-identity [--check]` | **Ready** (soft: after 004, so it is born as its own class) | `cuems-common` `docs/node-identity-contract.md` stays the contract; a second OS-touching path, so `CLAUDE.md`'s "exactly one path" changes | `13` row 12; the contract's `apply-identity` section |
+| **004** | **`nodeconf-atomization`** — extract rows 2, 3, 7, 8, 9 and 11 into their own classes; row 4 gets its collaborators passed in; interface names become configuration. **No behaviour change**: the suite and the yardstick pass unedited | **Waiting for the coordinated bump.** D23 lifted 2026-10-14 (`02-settled-decisions.md`) | the coordinated version bump | `13-atomization-remeasured.md` §1–§4, `01`, `11` (boot order) |
+| **005** | **`node-identity-apply`** — `<role_id>` on adoption; the OS identity chain (hostnamectl, `/etc/hosts`, `avahi-daemon.conf`); `cuems-nodeconf apply-identity [--check]` | **Waiting for the coordinated bump** (soft: after 004, so it is born as its own class) | `cuems-common` `docs/node-identity-contract.md` stays the contract; a second OS-touching path, so `CLAUDE.md`'s "exactly one path" changes | `13` row 12; the contract's `apply-identity` section |
 | **006** | **`controller-election`** — a real election and join protocol (runtime issue 5). Also fixes the stated limitation that a fresh node accepts every controller of its first pass | **Needs design** (`/speckit.specify` + clarify) | 004 (row 4's collaborators); ideally 005 (`role_id`) | `11` runtime issue 5, `08`, `../upstream-reports/foreign-controller-scoping.md` §5 |
 | **007** | **`hardware-probe`** — the per-node port inventory into `hardware_outputs.xml` | **Blocked upstream** | `cuems-utils` capability layer (structure pass + public `ConfigManager` accessor; unnumbered there); daemon enabled on every node | `cuems-utils` `hardware-outputs-capability-layer.md`; `13` row 13; prior art `CuemsHwDiscovery.py` on `origin/main` (`c6ccc7b`) |
 | **008** | **`display-conf-transcription`** — record `/run/cuems/display.conf`'s geometry | **Blocked** | 007; `cuems-common` agreeing to a second reader of `display.conf` | `13` row 14; capability layer §7.4 (on start vs on change) |
 
-**Which can start today**: 004 as soon as D23 is lifted, and 005 in parallel if you accept it
-landing before the split. 006 can start its spec and clarify phases now; its plan should wait for 004.
+**Which can start today**: none of 004–008 is implemented before the coordinated version bump
+lands (maintainer decision, 2026-10-14), so that their work ships in the version after `0.1.1-1`
+and not inside it. Specification work that writes no code (`/speckit.specify`, clarify) is not
+blocked by that; whether to start it early is the maintainer's call. After the bump: 004 first,
+then 005, then 006's plan.
 
 ## Superseded — kept as record
 

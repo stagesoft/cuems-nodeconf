@@ -73,5 +73,5 @@ enabled only on the formitgo controller. Enabling it on every node (ledger §5 i
   `specs/upstream-reports/foreign-controller-scoping.md`).
 - `01`'s `project_mappings` constraint still holds and now applies to row 13: hardware data
   reaches this daemon as its own domain object through `ConfigManager`, never on `NodeIndex`'s node.
-- **D23 bound feature 010 only.** A dedicated atomization feature needs the maintainer to lift it
-  explicitly. Not done yet.
+- **D23 bound feature 010 only, and was lifted by the maintainer on 2026-10-14** (`02-settled-decisions.md`).
+  The atomization waits for the coordinated version bump all the same.
