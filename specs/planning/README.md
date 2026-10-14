@@ -39,7 +39,7 @@ the order, not this table.
 
 | Work | Status | Gate |
 |---|---|---|
-| **Coordinated version bump** (`cuems-utils` `coordinated-release-version-bump.md` §11 step 6): `0.1.1-1` `unstable`; `cuemsutils >=0.1.1,<0.1.2`; `cuems-common` `Depends: >= 1.3.1~`, `Breaks: << 1.3.1~`; the version references in `tests/packaging/release-gate-demo.sh`, the 001/003 specs and the ledger | **Waiting** | Lands as one set with every sibling; `cuems-utils` `0.1.1` on PyPI first; tag re-cut is the maintainer's |
+| **Coordinated version bump** (`cuems-utils` `coordinated-release-version-bump.md` §11 step 6): `0.1.1-1` `unstable`; `cuemsutils >=0.1.1,<0.1.2`; `cuems-common` `Depends: >= 1.3.1~`, `Breaks: << 1.3.1~`; the version references in `tests/packaging/release-gate-demo.sh`, the 001/003 specs and the ledger | **Waiting** | Lands as one set with every sibling, and is **validated on the coordinated re-cut of `xml-refactor-merge-candidate`** in every sibling repository (maintainer decision, 2026-10-14). It does **not** wait for `cuems-utils` `0.1.1` on PyPI: validation builds against the library at its re-cut tag, as this repository's packaging runs already do (`tests/packaging/release-gate-demo.sh`). Publishing is a later step. Re-cutting the tag is the maintainer's |
 | **Hardware ledger** (`../002-public-network-map-path/checklists/hardware-verification.md` §1–§7) and **enabling the daemon on every node** (§5) | **Not performed** | Hardware access. §5 gates features 007/008 below |
 
 ### SDD features, proposed order
@@ -53,7 +53,7 @@ the order, not this table.
 | **008** | **`display-conf-transcription`** — record `/run/cuems/display.conf`'s geometry | **Blocked** | 007; `cuems-common` agreeing to a second reader of `display.conf` | `13` row 14; capability layer §7.4 (on start vs on change) |
 
 **Which can start today**: none of 004–008 is implemented before the coordinated version bump
-lands (maintainer decision, 2026-10-14), so that their work ships in the version after `0.1.1-1`
+lands on the re-cut `xml-refactor-merge-candidate` tag (maintainer decision, 2026-10-14), so that their work ships in the version after `0.1.1-1`
 and not inside it. Specification work that writes no code (`/speckit.specify`, clarify) is not
 blocked by that; whether to start it early is the maintainer's call. After the bump: 004 first,
 then 005, then 006's plan.
