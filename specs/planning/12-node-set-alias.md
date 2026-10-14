@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # `node_set` — the operator's node alias, written by the map's only writer
 
-> **Status (2026-10-14): IMPLEMENTED** — see §10. Owed: the hardware check and telling `cuems-editor`.
+> **Status (2026-10-14): IMPLEMENTED** — see §10. `cuems-editor` closed UR-8 in `2c100a4`. Owed: the hardware check (ledger §7a).
 
 **Repo-original, not vendored.** A ready-to-implement brief, written 2026-10-08. It covers one new
 IPC action and one handler method, together with their tests and verification. It is not run
@@ -233,5 +233,7 @@ Gate).
 - [x] §7's dispatch-path check run: `test_dispatch_path_over_a_real_ipc_socket`, a `Req0` client
       against the real `AsyncCommsThread` on a temporary socket. **The hardware check was not
       performed**; it is owed in `specs/002-public-network-map-path/checklists/hardware-verification.md` §7a.
-- [ ] `cuems-editor` told the contract is live (the response to its UR-8). **Not done here**: it is
-      outward-facing and is the maintainer's to send.
+- [x] `cuems-editor` told the contract is live (the response to its UR-8). It closed UR-8 and its
+      gate G4 in `2c100a4` (2026-10-14): its FR-024 to FR-027 already matched and it needed no code
+      change; its G4 test now passes against `3d3601d` and still fails against `155fe6c` ("unknown
+      action"); its contract no longer claims an mDNS republish.

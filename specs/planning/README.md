@@ -30,7 +30,7 @@ the order, not this table.
 | Work | Where |
 |---|---|
 | 001 network-map object adoption · 002 public network-map path · 003 start-up readiness | `specs/001-*` … `specs/003-*` |
-| `node_set` (operator alias over IPC) | `12-node-set-alias.md`, `3d3601d` |
+| `node_set` (operator alias over IPC) | `12-node-set-alias.md`, `3d3601d`; consumer side closed by `cuems-editor` `2c100a4` (UR-8, gate G4) |
 | Foreign controllers on a shared LAN (`rc_1` `80ccc83`) | `../upstream-reports/foreign-controller-scoping.md`, landed in `cuems-utils` `38d2ede`; wired here `155fe6c` |
 | Static link-local cluster address (`rc_1` `141cf1f`) | `16b207d` |
 | Release lines absorbed (`rc_1`, `debian/bookworm`), changelog headed `0.1.1-1 UNRELEASED` | `78e7290`, `952b9dd` |
@@ -41,7 +41,6 @@ the order, not this table.
 |---|---|---|
 | **Coordinated version bump** (`cuems-utils` `coordinated-release-version-bump.md` §11 step 6): `0.1.1-1` `unstable`; `cuemsutils >=0.1.1,<0.1.2`; `cuems-common` `Depends: >= 1.3.1~`, `Breaks: << 1.3.1~`; the version references in `tests/packaging/release-gate-demo.sh`, the 001/003 specs and the ledger | **Waiting** | Lands as one set with every sibling; `cuems-utils` `0.1.1` on PyPI first; tag re-cut is the maintainer's |
 | **Hardware ledger** (`../002-public-network-map-path/checklists/hardware-verification.md` §1–§7) and **enabling the daemon on every node** (§5) | **Not performed** | Hardware access. §5 gates features 007/008 below |
-| Tell `cuems-editor` that `node_set` is live (its UR-8) | **Not sent** | Maintainer |
 
 ### SDD features, proposed order
 
@@ -70,7 +69,7 @@ landing before the split. 006 can start its spec and clarify phases now; its pla
 | `07-public-surface.md` | features 001/002 |
 | `09-self-node-seeding.md` | feature 003 |
 | `10-readiness-window.md` | feature 003 |
-| `12-node-set-alias.md` | implemented directly from the brief, `3d3601d` (2026-10-14). Owed: hardware check (ledger §7a) and telling `cuems-editor` |
+| `12-node-set-alias.md` | implemented directly from the brief, `3d3601d` (2026-10-14); `cuems-editor` closed UR-8 in `2c100a4`. Owed: hardware check (ledger §7a) |
 
 ## Related, outside this folder
 
