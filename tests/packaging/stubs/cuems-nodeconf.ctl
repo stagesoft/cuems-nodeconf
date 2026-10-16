@@ -3,15 +3,16 @@
 #
 # equivs template for a STUB cuems-nodeconf at the PRE-CUTOVER release, used by
 # tests/packaging/release-gate-demo.sh ONLY as a fallback: the demonstration
-# builds the real 0.1.0-7 package from 478bc49 first, and falls back to this stub
+# builds the real released package from OLD_REF (0.1.0-9, origin/rc_1) first, and falls back to this stub
 # just if that build fails (its older packaging may no longer build here). The
 # evidence file records which of the two was used, per scenario.
 #
 # The relationships below are 478bc49's exactly (debian/control:18-19 at that
-# commit) — the release before the discovery cutover, whose bound on
+# commit), and unchanged in the released 0.1.0-9 on origin/rc_1, which is the
+# demonstration's OLD_REF since cuems-utils feature 016 — the release before the discovery cutover, whose bound on
 # cuems-common is a bare floor that does NOT refuse a renamed counterpart. That
 # is the half-renamed combination this repository's own
-# Breaks: cuems-common (<< 1.3.0-23~) closes from the other side.
+# Breaks: cuems-common (<< 1.3.1~) closes from the other side (<< 1.3.0-23~ before 016).
 Section: misc
 Priority: optional
 Standards-Version: 4.6.0

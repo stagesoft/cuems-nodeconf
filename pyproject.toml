@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "cuemsnodeconf"
-version = "0.1.0"
+version = "0.1.1"
 description = "CUEMS node discovery + adoption daemon (avahi/zeroconf, network_map.xml maintainer)"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -25,7 +25,7 @@ include = "cuemsnodeconf"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-cuemsutils = ">=0.1.0rc16,<0.1.1"
+cuemsutils = ">=0.1.1,<0.1.2"
 # The following are provided by Debian system packages and exposed to the
 # venv via dh_virtualenv --use-system-packages (see debian/control):
 #   python3-netifaces, python3-dbus, python3-zeroconf, python3-systemd

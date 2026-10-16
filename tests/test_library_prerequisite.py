@@ -23,6 +23,11 @@ primitive the daemon seeds its own map row through, landed in `cuems-utils`
 **73daab6** (its feature 011, T014), again inside `0.1.0rc16`. The pin cannot
 express it either. If the second test fails: rebuild the library from a checkout
 at 73daab6 or later. Never add a daemon-side insert instead (decision D2).
+
+**Since cuems-utils feature 016 the pin can express both.** The floor is
+`cuems-utils (>= 0.1.1)`, and `0.1.1` contains e363d03 and 73daab6, while every
+released `0.1.0rcN` is refused. The tests stay: they still catch a stale editable
+checkout, which no package relation sees.
 """
 import pytest
 from cuemsutils.tools.ConfigManager import ConfigManager

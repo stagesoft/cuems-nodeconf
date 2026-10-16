@@ -30,12 +30,11 @@
 # Usage:  tests/packaging/release-gate-demo.sh
 # Env:    WORK=<dir>      build/scratch directory (default: a new mktemp dir)
 #         OUT=<file>      evidence file (default: the feature's evidence/ file)
-#         OLD_REF=<ref>   this repo's pre-cutover release (default: 478bc49, 0.1.0-7)
+#         OLD_REF=<ref>   this repo's released pre-cutover build (default: origin/rc_1, 0.1.0-9)
 #         COMMON=<path>   cuems-common checkout (default: ../cuems-common)
-#         COMMON_NEW=<ref> its renamed release (default: 1a00159, 1.3.0-23). Its debian/
-#                  is identical to the merge-gate tag xml-refactor-merge-candidate
-#                  (f2fc0f5), so evidence built from either describes the same packages.
-#         COMMON_OLD=<ref> its released predecessor (default: rc_1, 1.3.0-22)
+#         COMMON_NEW=<ref> its renamed release (default: feat/xml-refactor, 1.3.1-1 since
+#                  cuems-utils feature 016). Pass the exact commit (or re-cut tag).
+#         COMMON_OLD=<ref> its released predecessor (default: v1.3.0-25)
 #         UTILS=<path>    cuems-utils checkout for the wheel (default: ../cuems-utils)
 #         MIRROR=<url>    Debian mirror (default: http://deb.debian.org/debian)
 # Needs:  mmdebstrap, uidmap (newuidmap/newgidmap), equivs, dpkg-dev, debhelper,
@@ -49,14 +48,15 @@ REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 FEATURE="$REPO/specs/001-network-map-object-adoption"
 WORK="${WORK:-$(mktemp -d -t cuems-nodeconf-gate-XXXXXX)}"
 OUT="${OUT:-$FEATURE/evidence/out-of-order-refusal.txt}"
-OLD_REF="${OLD_REF:-478bc49}"
+OLD_REF="${OLD_REF:-origin/rc_1}"
 COMMON="${COMMON:-$REPO/../cuems-common}"
-COMMON_NEW="${COMMON_NEW:-1a00159}"
-COMMON_OLD="${COMMON_OLD:-rc_1}"
+COMMON_NEW="${COMMON_NEW:-feat/xml-refactor}"
+COMMON_OLD="${COMMON_OLD:-v1.3.0-25}"
 UTILS="${UTILS:-$REPO/../cuems-utils}"
 MIRROR="${MIRROR:-http://deb.debian.org/debian}"
 
-UTILS_VERSIONS=(0.1.0rc15 0.1.0rc16 0.1.1~rc1)
+# Re-bound by cuems-utils feature 016: this package bounds cuems-utils (>= 0.1.1), (<< 0.1.2~).
+UTILS_VERSIONS=(0.1.0rc16 0.1.0rc17 0.1.1 0.1.2~rc1)
 
 log() { printf '[release-gate] %s\n' "$*" >&2; }
 
@@ -75,7 +75,7 @@ mkdir -p "$WORK"/{wheels,new/src,old/src,common-new/src,common-old/src,stubs,deb
 log "work directory: $WORK"
 
 # --- 1. the library wheel ----------------------------------------------------
-# dh_virtualenv's pip must resolve cuemsutils >= 0.1.0rc16, which PyPI does not
+# dh_virtualenv's pip must resolve cuemsutils >= 0.1.1, which PyPI does not
 # carry (it stops at 0.1.0rc14). The wheel is built from the sibling checkout and
 # offered to pip through PIP_FIND_LINKS — see §2 for why that is the supported
 # route rather than a debian/rules edit.
@@ -164,7 +164,7 @@ OLD_DEB="$(ls "$WORK"/build/out/cuems-nodeconf_"$OLD_VERSION"_*.deb 2>/dev/null 
 cp "$NEW_DEB" "$WORK/debs/cuems-nodeconf_new.deb"
 
 # The pre-cutover release is built for real when it can be; an equivs stub
-# carrying 478bc49's exact relationships is the recorded fallback.
+# carrying the released relationships (identical at 478bc49 and rc_1's 0.1.0-9) is the recorded fallback.
 OLD_KIND="REAL package built from $OLD_REF"
 if [ -n "$OLD_DEB" ]; then
     cp "$OLD_DEB" "$WORK/debs/cuems-nodeconf_old.deb"
@@ -274,45 +274,50 @@ versions() {
         cuems-common cuems-utils cuems-nodeconf 2>&1 || true
 }
 
-# --- N1: this package's own reverse guard, Breaks: cuems-common (<< 1.3.0-23~).
+# Re-cut by cuems-utils feature 016: "old" is now what the field actually runs —
+# the RELEASED cuems-nodeconf 0.1.0-9 (rc_1) and cuems-common 1.3.0-25, both still
+# node_type — and "new" is the refactor line, 0.1.1-1 and 1.3.1-1.
+
+# --- N1: this package's own reverse guard, Breaks: cuems-common (<< 1.3.1~).
 # The library stub is put in place first so the only thing left to judge is the
 # relationship between the two real packages.
-$APT --allow-downgrades install $G/cuems-utils_0.1.0rc16.deb > /dev/null 2>&1
-attempt N1 REFUSED "cuems-nodeconf 0.1.0-8 together with cuems-common 1.3.0-22 (un-renamed) — this package's Breaks" -- \
+$APT --allow-downgrades install $G/cuems-utils_0.1.1.deb > /dev/null 2>&1
+attempt N1 REFUSED "cuems-nodeconf 0.1.1-1 together with the released cuems-common 1.3.0-25 (still node_type) — this package's Breaks" -- \
     $APT install $G/cuems-nodeconf_new.deb $G/cuems-common_old.deb
 state "nothing installed after N1" -- versions
 
-# --- N2: the forward edge, cuems-common's Breaks: cuems-nodeconf (<< 0.1.0-8).
-attempt N2 REFUSED "cuems-common 1.3.0-23 together with cuems-nodeconf 0.1.0-7 (un-renamed) — the counterpart's Breaks" -- \
+# --- N2: the forward edge, cuems-common's Breaks: cuems-nodeconf (<< 0.1.1~).
+attempt N2 REFUSED "cuems-common 1.3.1-1 together with the released cuems-nodeconf 0.1.0-9 (still node_type) — the counterpart's Breaks" -- \
     $APT install $G/cuems-common_new.deb $G/cuems-nodeconf_old.deb
 state "still nothing installed" -- versions
 
-# --- N3: this package's library bound, both ends. cuems-common 1.3.0-23 is
+# --- N3: this package's library bound, both ends. cuems-common 1.3.1-1 is
 # offered alongside so that nodeconf's cuems-common dependency and its Breaks are
 # both satisfied, leaving the cuems-utils bound as the only thing that can refuse.
-# NOTE: cuems-common carries the same << 0.1.1~ ceiling, so for N3b either
-# package's relationship may be the one apt names; the transcript shows which.
-attempt N3a REFUSED "cuems-nodeconf 0.1.0-8 beside cuems-utils 0.1.0rc15 (below the floor)" -- \
-    $APT --allow-downgrades install $G/cuems-nodeconf_new.deb $G/cuems-common_new.deb $G/cuems-utils_0.1.0rc15.deb
-attempt N3b REFUSED "cuems-nodeconf 0.1.0-8 beside cuems-utils 0.1.1~rc1 (past the ceiling)" -- \
-    $APT --allow-downgrades install $G/cuems-nodeconf_new.deb $G/cuems-common_new.deb "$G/cuems-utils_0.1.1~rc1.deb"
+# NOTE: cuems-common carries the same bounds, so either package's relationship
+# may be the one apt names; the transcript shows which.
+attempt N3a REFUSED "cuems-nodeconf 0.1.1-1 beside cuems-utils 0.1.0rc17 (newest released rc; below the floor)" -- \
+    $APT --allow-downgrades install $G/cuems-nodeconf_new.deb $G/cuems-common_new.deb $G/cuems-utils_0.1.0rc17.deb
+attempt N3b REFUSED "cuems-nodeconf 0.1.1-1 beside cuems-utils 0.1.2~rc1 (past the ceiling)" -- \
+    $APT --allow-downgrades install $G/cuems-nodeconf_new.deb $G/cuems-common_new.deb "$G/cuems-utils_0.1.2~rc1.deb"
 state "still nothing installed" -- versions
 
-# --- N4: the baseline field host — everything at the pre-cutover release.
-attempt N4 ACCEPTED "baseline field host: cuems-utils 0.1.0rc16 + cuems-common 1.3.0-22 + cuems-nodeconf 0.1.0-7" -- \
-    $APT --allow-downgrades install $G/cuems-utils_0.1.0rc16.deb $G/cuems-common_old.deb $G/cuems-nodeconf_old.deb
+# --- N4: the baseline field host — the released trio.
+attempt N4 ACCEPTED "baseline field host: cuems-utils 0.1.0rc17 + cuems-common 1.3.0-25 + cuems-nodeconf 0.1.0-9" -- \
+    $APT --allow-downgrades install $G/cuems-utils_0.1.0rc17.deb $G/cuems-common_old.deb $G/cuems-nodeconf_old.deb
 state "baseline installed" -- versions
 
 # --- N5 / N6: upgrading one half of the cutover on that host.
-attempt N5 REFUSED "on the baseline host, upgrade ONLY cuems-nodeconf to 0.1.0-8" -- \
+attempt N5 REFUSED "on the baseline host, upgrade ONLY cuems-nodeconf to 0.1.1-1" -- \
     $APT install $G/cuems-nodeconf_new.deb
-attempt N6 REFUSED "on the baseline host, upgrade ONLY cuems-common to 1.3.0-23" -- \
+attempt N6 REFUSED "on the baseline host, upgrade ONLY cuems-common to 1.3.1-1" -- \
     $APT install $G/cuems-common_new.deb
 state "baseline unchanged by either half-upgrade" -- versions
 
-# --- N7: both halves together, in one call — the cluster upgrades as a unit.
-attempt N7 ACCEPTED "on the baseline host, upgrade BOTH together in one apt-get call" -- \
-    $APT install $G/cuems-common_new.deb $G/cuems-nodeconf_new.deb
+# --- N7: all three together, in one call — the cluster upgrades as a unit. The
+# library moves too: the new pair needs cuems-utils >= 0.1.1 and the baseline runs rc17.
+attempt N7 ACCEPTED "on the baseline host, upgrade cuems-utils, cuems-common and cuems-nodeconf together in one apt-get call" -- \
+    $APT install $G/cuems-utils_0.1.1.deb $G/cuems-common_new.deb $G/cuems-nodeconf_new.deb
 state "after the coordinated upgrade" -- versions
 state "the daemon's entry point is installed" -- ls -l /usr/lib/cuems/bin/cuems-nodeconf
 state "the renamed discovery templates are in place" -- sh -c 'ls -1 /usr/share/cuems/cuems.service.*'
@@ -320,9 +325,8 @@ state "the renamed discovery templates are in place" -- sh -c 'ls -1 /usr/share/
 # --- N8: quickstart §4's own form — dpkg rather than apt, on the upgraded host.
 # dpkg, unlike apt, unpacks first and resolves after, so the expectation here is
 # BREAKS-UNCONFIGURED: dpkg names cuems-common's Breaks and leaves the downgrade
-# unconfigured with a non-zero exit. Expecting REFUSED was wrong about dpkg's
-# order of operations, not about the gate; observed 2026-09-17 and corrected.
-attempt N8 BREAKS-UNCONFIGURED "on the upgraded host, dpkg -i of cuems-nodeconf 0.1.0-7 (quickstart.md §4)" -- \
+# unconfigured with a non-zero exit (observed 2026-09-17).
+attempt N8 BREAKS-UNCONFIGURED "on the upgraded host, dpkg -i of the released cuems-nodeconf 0.1.0-9 (quickstart.md §4)" -- \
     dpkg -i $G/cuems-nodeconf_old.deb
 state "final versions" -- versions
 exit 0

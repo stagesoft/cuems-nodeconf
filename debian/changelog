@@ -3,9 +3,9 @@ cuems-nodeconf (0.1.1-1) UNRELEASED; urgency=medium
   * The Avahi discovery TXT record now carries node_role with the
     controller/node/firstrun vocabulary, replacing node_type with
     master/slave/firstrun. This is one coordinated cutover with
-    cuems-common 1.3.0-23, which owns the service templates: a listener
+    cuems-common 1.3.1-1, which owns the service templates: a listener
     and a publisher that disagree about the key discover nothing, so the
-    two packages must move together. Breaks: cuems-common (<< 1.3.0-23~)
+    two packages must move together. Breaks: cuems-common (<< 1.3.1~)
     refuses the half-renamed combination this package can refuse;
     cuems-common carries the other direction.
   * The controller and node service templates are resolved under their
@@ -14,7 +14,7 @@ cuems-nodeconf (0.1.1-1) UNRELEASED; urgency=medium
     come from cuems-utils rather than being reimplemented here; the
     operator-visible adopt/unadopt answers are unchanged, and a failed
     write is still retried on the next discovery pass.
-  * cuems-utils is bounded (>= 0.1.0rc16, << 0.1.1~) instead of carrying
+  * cuems-utils is bounded (>= 0.1.1, << 0.1.2~) instead of carrying
     two disagreeing floors: a floor alone cannot refuse a library that
     has moved past this package.
   * An adopt or unadopt that reaches the daemon before it has loaded the
@@ -27,13 +27,13 @@ cuems-nodeconf (0.1.1-1) UNRELEASED; urgency=medium
     (defaults 10 and 5, unchanged).
   * The daemon is now the sole writer of /etc/avahi/services/cuems.service,
     rendered from /etc/cuems/settings.xml over the placeholder uuid in the
-    templates cuems-common 1.3.0-23 ships, before the request socket exists
+    templates cuems-common 1.3.1-1 ships, before the request socket exists
     and again at every role change; avahi-daemon is reloaded only when the
     bytes changed. An unprovisioned node (settings.xml absent, invalid or
     carrying the placeholder identity) logs NOT PROVISIONED and refuses to
     start. After re-minting an identity, restart cuems-nodeconf. This node's
     own map row is seeded through cuemsutils' NodeIndex.ensure, which needs
-    a cuems-utils build at 73daab6 or later inside 0.1.0rc16.
+    cuems-utils 0.1.1 (73daab6 and later), which the floor now expresses.
   * Carries rc_1's 0.1.0-9 fix forward: a cluster link with a static
     169.254.x address and no ':avahi' label is accepted (ported onto the
     configurable interface wait).
@@ -46,8 +46,16 @@ cuems-nodeconf (0.1.1-1) UNRELEASED; urgency=medium
     before the map is loaded ('nodeconf is still starting up'), for any
     field other than alias, and for an empty alias; no write when the
     value is unchanged. The alias is not published over mDNS.
+  * Coordinated xml-refactor minor (cuems-utils feature 016): the version
+    sites agree on 0.1.1 (pyproject.toml said 0.1.0). The relations move
+    with the versions they name: cuems-utils (>= 0.1.1), (<< 0.1.2~);
+    cuems-common (>= 1.3.1~), was (>= 1.0.0), a floor older than the
+    node-identity contract; Breaks: cuems-common (<< 1.3.1~), was
+    (<< 1.3.0-23~), which the released cuems-common 1.3.0-23..-25 satisfied
+    while still shipping node_type. The release line rc_1 (0.1.0-8, -9)
+    is fully absorbed.
 
- -- Adrià Masip <adria@stagelab.coop>  Tue, 13 Oct 2026 12:00:00 +0200
+ -- Adrià Masip <adria@stagelab.coop>  Fri, 16 Oct 2026 10:00:00 +0200
 
 cuems-nodeconf (0.1.0-9) unstable; urgency=medium
 
